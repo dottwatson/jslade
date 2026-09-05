@@ -266,6 +266,15 @@ CI runs **`npm run test:ci`** plus **`npm run test:coverage`** on every push and
 
 See **`tests/README.md`** for layout and how to add cases.
 
+### Markup compilation paths
+
+| Path | Entry | Used by |
+|------|--------|---------|
+| **AST (default)** | `compileMarkupToAst()` | `Jslade.compile()`, all live components |
+| **String emitter (legacy export)** | `compileMarkupSource()` | Advanced tooling; emits a JS function body via `handlerFn` + `createDirectiveContext` |
+
+Both paths share the same directive registry. **`compileMarkupSource()`** is exported for low-level experiments — production templates always use the AST pipeline. Tests: `tests/unit/markup-legacy.test.js`.
+
 ---
 
 ## Verifying DOM behaviour (manual)

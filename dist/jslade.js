@@ -2978,6 +2978,115 @@ ${def.markup || ''}
         return compiledMeta
     }
 
+    // src/jslade/markup/directive-context.js
+    function createDirectiveContext(token, emitter, errorContext, tokenStart) {
+        const ctx = {
+            expr: token.expression,
+            tokenStart,
+            raise(message) {
+                if (errorContext && errorContext.templateName) {
+                    throw new Error(
+                        formatModuleError(
+                            errorContext.templateName,
+                            'markup',
+                            errorContext.markup ?? '',
+                            tokenStart,
+                            message,
+                            errorContext.sourceLines
+                        )
+                    )
+                }
+                throw new Error(message)
+            },
+            emit(code) {
+                emitter.emitLine(code, tokenStart)
+            },
+            inline(strings, ...values) {
+                return escapeDirective(strings, ...values)
+            },
+            wrap(openHtml, closeHtml) {
+                ctx._block = {
+                    open: () => {
+                        emitter.emitLine(`_.push(${JSON.stringify(openHtml)})`, tokenStart)
+                    },
+                    close: () => {
+                        emitter.emitLine(`_.push(${JSON.stringify(closeHtml)})`, tokenStart)
+                    },
+                }
+            },
+            when(condition) {
+                ctx._block = {
+                    open: () => {
+                        emitter.emitLine(`if (${condition}) {`, tokenStart)
+                        emitter.increaseIndent()
+                    },
+                    close: () => {
+                        emitter.decreaseIndent()
+                        emitter.emitLine('}', tokenStart)
+                    },
+                }
+            },
+            loop(arrayExpr, itemVar) {
+                emitter._loopDepth = emitter._loopDepth || 0
+                const d = emitter._loopDepth++
+                const vi = `_i${d}`,
+                    va = `_a${d}`,
+                    vl = `_l${d}`
+                ctx._block = {
+                    open: () => {
+                        emitter.emitLine(
+                            `for (var ${vi} = 0, ${va} = ${arrayExpr}, ${vl} = ${va}.length; ${vi} < ${vl}; ${vi}++) {`,
+                            tokenStart
+                        )
+                        emitter.emitLine(`  var ${itemVar} = ${va}[${vi}]`, tokenStart)
+                        emitter.emitLine(
+                            `  var $loop = { index: ${vi}, first: ${vi} === 0, last: ${vi} === ${vl} - 1, count: ${vl} }`,
+                            tokenStart
+                        )
+                        emitter.increaseIndent()
+                    },
+                    close: () => {
+                        emitter._loopDepth--
+                        emitter.decreaseIndent()
+                        emitter.emitLine('}', tokenStart)
+                    },
+                }
+            },
+            raw() {
+                emitter._rawMode = true
+                ctx._block = {
+                    open: () => {
+                        emitter.emitLine(';(function(){', tokenStart)
+                        emitter.increaseIndent()
+                    },
+                    close: () => {},
+                }
+            },
+            _block: null,
+        }
+        function escapeDirective(strings, ...values) {
+            const parts = []
+            for (let i = 0; i < strings.length; i++) {
+                parts.push(strings[i])
+                if (i < values.length) {
+                    parts.push(`'+escapeHtml(${values[i]})+'`)
+                }
+            }
+            emitter.emitLine(`_.push('${parts.join('')}')`, tokenStart)
+        }
+        ctx.inline.raw = function (strings, ...values) {
+            const parts = []
+            for (let i = 0; i < strings.length; i++) {
+                parts.push(strings[i])
+                if (i < values.length) {
+                    parts.push(`'+String(${values[i]})+'`)
+                }
+            }
+            emitter.emitLine(`_.push('${parts.join('')}')`, tokenStart)
+        }
+        return ctx
+    }
+
     // src/jslade/markup/directives.js
     function escapeAttributeValue(expression) {
         return expression.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -3094,6 +3203,37 @@ ${def.markup || ''}
             }
             return true
         }
+        function compileDirectiveLegacy(directiveToken, emitter, errorContext, tokenStart) {
+            const handler = handlersByName.get(directiveToken.name)
+            if (!handler) return false
+            if (handler._isEndDirective) {
+                const baseName = handler._endForDirective
+                emitter.popOpenBlock(baseName)
+                if (handler._customClose) {
+                    handler._customClose()
+                } else {
+                    emitter.emitLine('}', tokenStart)
+                }
+                return true
+            }
+            const ctx = createDirectiveContext(directiveToken, emitter, errorContext, tokenStart)
+            if (handler._isElse) {
+                ctx.emit('} else {')
+                return true
+            }
+            if (!handler.handlerFn) return false
+            handler.handlerFn(ctx, emitter, tokenStart)
+            if (handler.block) {
+                emitter.pushOpenBlock(directiveToken.name)
+                if (ctx._block) {
+                    const endName = 'end' + directiveToken.name
+                    const endHandler = handlersByName.get(endName)
+                    if (endHandler) endHandler._customClose = ctx._block.close
+                    ctx._block.open()
+                }
+            }
+            return true
+        }
         function registerBuiltinDirectives() {
             registerDirective('if', { block: true }, function (ctx) {
                 ctx.emit(`if (${ctx.expr}) {`)
@@ -3107,7 +3247,13 @@ ${def.markup || ''}
             handlersByName.get('elseif').astHandlerFn = function (ctx, emitter, tokenStart) {
                 emitter.elseIf(ctx.parseExpr(ctx.expr), tokenStart)
             }
-            handlersByName.set('else', { _isElse: true, handlerFn: function () {}, astHandlerFn: function () {} })
+            handlersByName.set('else', {
+                _isElse: true,
+                handlerFn: function (ctx) {
+                    ctx.emit('} else {')
+                },
+                astHandlerFn: function () {},
+            })
             registerDirective('foreach', { block: true }, function (ctx) {
                 try {
                     const { arrayExpression, itemVariable } = parseForeachExpression(ctx.expr)
@@ -3216,8 +3362,8 @@ ${def.markup || ''}
         registerBuiltinDirectives()
         registryApi = {
             register: registerDirective,
-            compile: function () {
-                return false
+            compile(directiveToken, emitter, errorContext, tokenStart) {
+                return compileDirectiveLegacy(directiveToken, emitter, errorContext, tokenStart)
             },
             compileAst(directiveToken, emitter, errorContext, tokenStart, eventHandlers) {
                 return compileDirectiveAst(directiveToken, emitter, errorContext, tokenStart, eventHandlers)

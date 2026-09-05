@@ -1,4 +1,5 @@
 import { parseForeachExpression, parseForInExpression, readBalancedParentheses } from '../lib/html-utils.js'
+import { createDirectiveContext } from './directive-context.js'
 import { createAstDirectiveContext } from './ast-emitter.js'
 import { parseExpression, parseForHeader, parseStatementList } from '../ast/parse-expr.js'
 import { EVENT_ATTRIBUTE_PREFIX } from '../lib/constants.js'
@@ -137,6 +138,46 @@ export function createDirectiveRegistry() {
         return true
     }
 
+    /** String-emitter path used by compileMarkupSource() — handlerFn + createDirectiveContext. */
+    function compileDirectiveLegacy(directiveToken, emitter, errorContext, tokenStart) {
+        const handler = handlersByName.get(directiveToken.name)
+        if (!handler) return false
+
+        if (handler._isEndDirective) {
+            const baseName = handler._endForDirective
+            emitter.popOpenBlock(baseName)
+            if (handler._customClose) {
+                handler._customClose()
+            } else {
+                emitter.emitLine('}', tokenStart)
+            }
+            return true
+        }
+
+        const ctx = createDirectiveContext(directiveToken, emitter, errorContext, tokenStart)
+
+        if (handler._isElse) {
+            ctx.emit('} else {')
+            return true
+        }
+
+        if (!handler.handlerFn) return false
+
+        handler.handlerFn(ctx, emitter, tokenStart)
+
+        if (handler.block) {
+            emitter.pushOpenBlock(directiveToken.name)
+            if (ctx._block) {
+                const endName = 'end' + directiveToken.name
+                const endHandler = handlersByName.get(endName)
+                if (endHandler) endHandler._customClose = ctx._block.close
+                ctx._block.open()
+            }
+        }
+
+        return true
+    }
+
     function registerBuiltinDirectives() {
         registerDirective('if', { block: true }, function (ctx) {
             ctx.emit(`if (${ctx.expr}) {`)
@@ -152,7 +193,13 @@ export function createDirectiveRegistry() {
             emitter.elseIf(ctx.parseExpr(ctx.expr), tokenStart)
         }
 
-        handlersByName.set('else', { _isElse: true, handlerFn: function () {}, astHandlerFn: function () {} })
+        handlersByName.set('else', {
+            _isElse: true,
+            handlerFn: function (ctx) {
+                ctx.emit('} else {')
+            },
+            astHandlerFn: function () {},
+        })
 
         registerDirective('foreach', { block: true }, function (ctx) {
             try {
@@ -271,8 +318,8 @@ export function createDirectiveRegistry() {
 
     registryApi = {
         register: registerDirective,
-        compile: function () {
-            return false
+        compile(directiveToken, emitter, errorContext, tokenStart) {
+            return compileDirectiveLegacy(directiveToken, emitter, errorContext, tokenStart)
         },
         compileAst(directiveToken, emitter, errorContext, tokenStart, eventHandlers) {
             return compileDirectiveAst(directiveToken, emitter, errorContext, tokenStart, eventHandlers)
