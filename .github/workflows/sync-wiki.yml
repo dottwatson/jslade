@@ -28,7 +28,7 @@ jobs:
                     echo "Wiki empty or missing — initializing"
                     mkdir wiki-repo
                     cd wiki-repo
-                    git init -b main
+                    git init -b master
                     git remote add origin "$WIKI_URL"
                   fi
 
@@ -45,5 +45,5 @@ jobs:
                     echo "Wiki already up to date"
                   else
                     git commit -m "Sync from docs (${{ github.sha }})"
-                    git push -u origin main
+                    git push origin HEAD:master
                   fi
