@@ -40,7 +40,7 @@ Open `tests/patch.html` in a browser after engine changes that touch DOM patchin
 ## Component / docs changes
 
 - Example components: `playgrounds/sandbox/components/**/*.jsd`
-- Docs: `docs/`
+- Docs: `docs/` (synced to [GitHub Wiki](https://github.com/dottwatson/jslade/wiki) on push)
 - Package README stays concise; detailed guides belong in `docs/`
 
 ## Pull requests

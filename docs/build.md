@@ -273,6 +273,26 @@ and README. Generated artifacts you do not list there are never published.
 
 ---
 
+## GitHub Wiki
+
+Documentation lives in **`docs/`** — that folder is the **only** source of truth.
+
+When you push changes under `docs/` to **`main`**, the workflow
+**`.github/workflows/sync-wiki.yml`** copies those files into the
+[GitHub Wiki](https://github.com/dottwatson/jslade/wiki) automatically. Do not edit wiki
+pages in the GitHub UI; changes would be overwritten on the next sync.
+
+To run a sync manually: **Actions → Sync wiki from docs → Run workflow**.
+
+To test locally (optional):
+
+```sh
+git clone https://github.com/dottwatson/jslade.wiki.git /tmp/jslade-wiki
+node scripts/sync-wiki.mjs /tmp/jslade-wiki
+```
+
+---
+
 ## Troubleshooting
 
 ### `npm run build` exits immediately with a non-zero code
