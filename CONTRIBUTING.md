@@ -21,10 +21,10 @@ workspace, is optional reference material.
 1. **Match existing style** — 4-space indent, no semicolons, single quotes. Run `npm run format`.
 2. **Keep diffs minimal** — one concern per change; no drive-by refactors.
 3. **Preserve the public API** unless the change is explicitly breaking (document in CHANGELOG).
-4. **Run build:**
+4. **Run build and tests:**
 
    ```sh
-   npm run build
+   npm run test:ci
    ```
 
 5. **Engine changes** must pass symbol validation in `scripts/build-min.mjs`.
@@ -35,7 +35,8 @@ workspace, is optional reference material.
 npm run build    # bundle + minify → dist/
 ```
 
-Open `tests/patch.html` in a browser after engine changes that touch DOM patching.
+Open `tests/patch.html` in a browser after engine changes that touch DOM patching, or run
+**`npm run test:ci`** for the headless suite.
 
 ## Component / docs changes
 

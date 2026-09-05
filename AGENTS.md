@@ -13,7 +13,7 @@ You are working on the **`jslade` npm package** — a dependency-free client-sid
 | Docs | `docs/`, `README.md` |
 | Sandbox | `playgrounds/sandbox/` |
 | Debug bar | `debugger/` (dev only) |
-| Tests | `tests/patch.html` (manual) |
+| Tests | `tests/patch.html` — run with `npm test` |
 
 ## Workflows
 

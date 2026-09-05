@@ -211,7 +211,8 @@ Supporting files outside `src/jslade/`:
 |---|---|
 | **`scripts/build-bundle.mjs`** | esbuild → `dist/jslade.js` |
 | **`scripts/build-min.mjs`** | terser + symbol validation → `dist/jslade.min.js` |
-| **`tests/patch.html`** | Browser checks for DOM patching after engine changes |
+| **`tests/patch.html`** | Browser checks for DOM patching (run via `npm test`) |
+| **`scripts/run-tests.mjs`** | Headless runner for `patch.html` (Playwright) |
 | **`playgrounds/sandbox/`** | Static demo page loading the built min bundle |
 | **`debugger/`** | Optional dev debug bar (ES modules, not part of the UMD build) |
 
@@ -241,7 +242,28 @@ fix an export that esbuild dropped.
 
 ---
 
-## Verifying DOM behaviour
+## Automated tests
+
+DOM regression tests live in **`tests/patch.html`**. Run them headlessly with Playwright:
+
+```sh
+npm install
+npx playwright install chromium    # once per machine
+npm run test:ci                    # build + test
+```
+
+Or after a build: **`npm test`**.
+
+On every push to **`main`** (and on pull requests), the **Test** GitHub Action runs the same
+suite. Failures print each assertion line in the CI log.
+
+To add a case, append a block to the `run()` function in **`tests/patch.html`**. Each test
+should call **`assert(condition, message)`** and **`await tick()`** after state changes so
+the render queue can flush.
+
+---
+
+## Verifying DOM behaviour (manual)
 
 `tests/patch.html` is a self-contained browser test page for the DOM morph layer. It mounts
 small component trees, mutates state, and asserts that nodes are patched rather than replaced

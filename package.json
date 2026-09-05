@@ -34,6 +34,8 @@
         "build:bundle": "node scripts/build-bundle.mjs",
         "dev": "npx --yes serve . -p 5173",
         "format": "prettier --write \"src/jslade/**/*.js\" \"scripts/**/*.mjs\" \"debugger/**/*.js\"",
+        "test": "node scripts/run-tests.mjs",
+        "test:ci": "npm run build && npm test",
         "prepublishOnly": "npm run build"
     },
     "keywords": [
@@ -48,6 +50,7 @@
     ],
     "devDependencies": {
         "esbuild": "^0.25.0",
+        "playwright": "^1.52.0",
         "prettier": "^3.6.0",
         "terser": "^5.49.0"
     }

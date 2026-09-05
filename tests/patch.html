@@ -259,12 +259,11 @@
 
                 // ── 13. updated() writing to state is still caught ───────────────────
                 {
-                    define('p/loop', 'props({ n: 0 })', '<div>{{ n }}</div>')
-                    Jslade.compiledComponents['p/loop'].hooks = {
-                        updated() {
-                            this.state.n = this.state.n + 1
-                        },
-                    }
+                    define(
+                        'p/loop',
+                        'props({ n: 0 })\nupdated(function() { this.state.n = this.state.n + 1 })',
+                        '<div>{{ n }}</div>'
+                    )
                     const errors = []
                     const original = console.error
                     console.error = (...args) => errors.push(String(args[0]))
