@@ -250,19 +250,19 @@ The package ships a **three-layer** test suite. Run everything with:
 npm install
 npx playwright install chromium    # once per machine
 npm run test:ci                    # build + all tests
-npm run test:coverage              # unit tests + c8 report for src/jslade/
+npm run test:coverage              # unified unit + browser coverage → coverage/lcov.info + badges/coverage.json
 ```
 
 | Layer | Command | Coverage |
 |-------|---------|----------|
 | **Unit** | `npm run test:unit` | HTML utils, expression parser, markup compile/render, script scanner, `import()` normalization, Wire, custom directives, public API exports, min-bundle symbol guard |
-| **Unit — coverage** | `npm run test:coverage` | Same as unit, with **c8** statement/branch report (`coverage/lcov.info`) |
+| **Unified coverage** | `npm run test:coverage` | **c8** (unit, direct `src/`) + **Playwright V8** (browser suites, mapped via `dist/jslade.js.map`) merged into one line-rate badge |
 | **Browser — DOM** | `tests/patch.html` | Morph/patch: focus, keys, children, attributes, render-loop guard (38 cases) |
 | **Browser — integration** | `tests/browser/integration.html` | Boot (`import`/`start`), `render()`, reactive updates, Wire |
 | **Browser — scoped CSS** | `tests/browser/scoped-css.html` | Live DOM: scoped injection, silent failure without `style-scoped` |
 | **Browser — distribution** | `tests/browser/bundle-min.html` | `dist/jslade.min.js` loads and mounts |
 
-CI runs **`npm run test:ci`** plus **`npm run test:coverage`** on every push and pull request (workflow **Test**). The README shows a passing-tests badge linked to that workflow.
+CI runs **`npm run test:ci`** plus **`npm run test:coverage`** on every push and pull request (workflow **Test**). On pushes to `main`, CI updates **`badges/coverage.json`** for the README coverage shield. The tests badge links to the same workflow.
 
 See **`tests/README.md`** for layout and how to add cases.
 

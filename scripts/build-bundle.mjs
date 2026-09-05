@@ -47,6 +47,7 @@ await esbuild.build({
     format: 'iife',
     globalName: '__jsladeModule',
     platform: 'browser',
+    sourcemap: process.env.COVERAGE === '1' ? 'linked' : false,
     banner,
     footer,
 })

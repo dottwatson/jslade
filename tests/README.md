@@ -7,7 +7,7 @@ npm run test:ci    # build + unit + browser
 npm test           # unit + browser (requires existing dist/)
 npm run test:unit  # Node only
 npm run test:browser
-npm run test:coverage  # unit tests + c8 report for src/jslade/
+npm run test:coverage  # unified unit + browser → badges/coverage.json
 ```
 
 ## Layout

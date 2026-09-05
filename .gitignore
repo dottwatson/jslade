@@ -1,3 +1,4 @@
 node_modules/
 coverage/
 dist/jslade-components.js
+dist/*.map
