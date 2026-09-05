@@ -244,22 +244,24 @@ fix an export that esbuild dropped.
 
 ## Automated tests
 
-DOM regression tests live in **`tests/patch.html`**. Run them headlessly with Playwright:
+The package ships a **three-layer** test suite. Run everything with:
 
 ```sh
 npm install
 npx playwright install chromium    # once per machine
-npm run test:ci                    # build + test
+npm run test:ci                    # build + all tests
 ```
 
-Or after a build: **`npm test`**.
+| Layer | Command | Coverage |
+|-------|---------|----------|
+| **Unit** | `npm run test:unit` | HTML utils, expression parser, markup compile/render, script scanner, `import()` normalization, Wire, public API exports, min-bundle symbol guard |
+| **Browser — DOM** | `tests/patch.html` | Morph/patch: focus, keys, children, attributes, render-loop guard (38 cases) |
+| **Browser — integration** | `tests/browser/integration.html` | Boot (`import`/`start`), `render()`, reactive updates, Wire |
+| **Browser — distribution** | `tests/browser/bundle-min.html` | `dist/jslade.min.js` loads and mounts |
 
-On every push to **`main`** (and on pull requests), the **Test** GitHub Action runs the same
-suite. Failures print each assertion line in the CI log.
+CI runs **`npm run test:ci`** on every push and pull request (workflow **Test**).
 
-To add a case, append a block to the `run()` function in **`tests/patch.html`**. Each test
-should call **`assert(condition, message)`** and **`await tick()`** after state changes so
-the render queue can flush.
+See **`tests/README.md`** for layout and how to add cases.
 
 ---
 

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jslade — min bundle smoke test</title>
+        <style>
+            body { font-family: ui-monospace, monospace; margin: 1rem; }
+            .ok::before { content: '✓ '; color: #080; }
+            .ko::before { content: '✗ '; color: #c00; }
+            .ko { color: #c00; }
+        </style>
+    </head>
+    <body>
+        <ul id="out"></ul>
+        <script src="../../dist/jslade.min.js"></script>
+        <script>
+            const out = document.getElementById('out')
+            let passed = 0
+            let failed = 0
+
+            function assert(condition, message) {
+                const li = document.createElement('li')
+                li.className = condition ? 'ok' : 'ko'
+                li.textContent = message
+                out.appendChild(li)
+                condition ? passed++ : failed++
+            }
+
+            try {
+                assert(typeof Jslade === 'object', 'Jslade global exists')
+                assert(typeof Jslade.import === 'function', 'import() available')
+                assert(typeof Jslade.start === 'function', 'start() available')
+                assert(typeof Jslade.renderTo === 'function', 'renderTo() available')
+                assert(typeof Jslade.directive === 'function', 'directive() available')
+                assert(typeof Jslade.sendState === 'function', 'sendState() available')
+
+                Jslade.compile('min/smoke', {
+                    script: 'props({ t: "ok" })',
+                    markup: '<span id="s">{{ t }}</span>',
+                    scopedStyles: '',
+                    scopeTargets: false,
+                })
+
+                const host = document.createElement('div')
+                document.body.appendChild(host)
+                const inst = Jslade.renderTo(host, 'min/smoke', {})
+                assert(host.querySelector('#s').textContent === 'ok', 'min bundle mounts and renders')
+                inst.unmount()
+            } catch (err) {
+                assert(false, 'crashed: ' + err.message)
+            }
+
+            window.__results = { passed, failed }
+        </script>
+    </body>
+</html>

@@ -14,7 +14,7 @@ workspace, is optional reference material.
 | `playgrounds/sandbox/` | Static demo and example `*.jsd` components |
 | `debugger/` | Development debug bar (not for production) |
 | `scripts/` | Build scripts |
-| `tests/` | Browser tests (`patch.html`) |
+| `tests/` | Unit tests (`tests/unit/`) + browser suites (`tests/patch.html`, `tests/browser/`) |
 
 ## Before you submit
 

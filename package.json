@@ -35,6 +35,8 @@
         "dev": "npx --yes serve . -p 5173",
         "format": "prettier --write \"src/jslade/**/*.js\" \"scripts/**/*.mjs\" \"debugger/**/*.js\"",
         "test": "node scripts/run-tests.mjs",
+        "test:unit": "node --test tests/unit/*.test.js",
+        "test:browser": "node scripts/run-browser-tests.mjs",
         "test:ci": "npm run build && npm test",
         "prepublishOnly": "npm run build"
     },

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jslade — integration tests</title>
+        <style>
+            body { font-family: ui-monospace, monospace; margin: 1rem; }
+            .ok::before { content: '✓ '; color: #080; }
+            .ko::before { content: '✗ '; color: #c00; }
+            .ko { color: #c00; }
+            #stage { position: absolute; left: -9999px; }
+        </style>
+    </head>
+    <body>
+        <ul id="out"></ul>
+        <div id="stage"></div>
+        <script src="../../dist/jslade.js"></script>
+        <script>
+            const out = document.getElementById('out')
+            let passed = 0
+            let failed = 0
+
+            function assert(condition, message) {
+                const li = document.createElement('li')
+                li.className = condition ? 'ok' : 'ko'
+                li.textContent = message
+                out.appendChild(li)
+                condition ? passed++ : failed++
+            }
+
+            const tick = () => new Promise((r) => setTimeout(r, 0))
+
+            async function run() {
+                // import + start + placeholder
+                {
+                    const raw =
+                        '<noembed name="int/hello">' +
+                        '<script>props({ name: "world" })<\/script>' +
+                        '<template><p class="g">{{ name }}</p></template>' +
+                        '</noembed>'
+
+                    const host = document.createElement('div')
+                    host.innerHTML = '<jslade name="int/hello" props=\'{ "name": "Ada" }\'></jslade>'
+                    document.getElementById('stage').appendChild(host)
+
+                    Jslade.import({ 'int/hello': raw })
+                    Jslade.start({ root: host })
+
+                    const el = host.querySelector('jslade')
+                    assert(el && el.component, 'start() mounts placeholder')
+                    assert(el.component.state.name === 'Ada', 'props merge over defaults')
+                    assert(host.querySelector('.g').textContent === 'Ada', 'template renders')
+                }
+
+                // render() static HTML
+                {
+                    Jslade.compile('int/static', {
+                        script: 'props({ x: 1 })',
+                        markup: '<span>{{ x }}</span>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    const html = Jslade.render('int/static', { x: 42 })
+                    assert(html.includes('42'), 'render() returns expanded HTML')
+                    assert(!html.includes('data-jsd-'), 'render() strips internal markers')
+                }
+
+                // reactive update via renderTo
+                {
+                    Jslade.compile('int/live', {
+                        script: 'props({ n: 0 })',
+                        markup: '<b class="n">{{ n }}</b>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    const box = document.createElement('div')
+                    document.getElementById('stage').appendChild(box)
+                    const inst = Jslade.renderTo(box, 'int/live', { n: 1 })
+                    inst.state.n = 9
+                    await tick()
+                    assert(box.querySelector('.n').textContent === '9', 'state change re-renders')
+                }
+
+                // Wire between instances (receiver must mount before sender)
+                {
+                    Jslade.compile('int/wire-a', {
+                        script: 'mount(function(send) { send("int/chan", { from: "a" }) })',
+                        markup: '<i>a</i>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    Jslade.compile('int/wire-b', {
+                        script: 'props({ msg: "" })\nmount(function(send, receive) { receive("int/chan", function(d) { this.msg = d.from }) })',
+                        markup: '<i>{{ msg }}</i>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    const a = document.createElement('div')
+                    const b = document.createElement('div')
+                    document.getElementById('stage').append(a, b)
+                    const binst = Jslade.renderTo(b, 'int/wire-b', {})
+                    await tick()
+                    Jslade.renderTo(a, 'int/wire-a', {})
+                    await tick()
+                    assert(binst.state.msg === 'a', 'Wire deliver between components')
+                }
+
+                // bootstrap alias
+                {
+                    assert(typeof Jslade.bootstrap === 'function', 'bootstrap() is exported')
+                }
+
+                // list() shows compiled names
+                {
+                    const names = Jslade.list()
+                    assert(names.includes('int/static'), 'list() includes compiled templates')
+                }
+
+                window.__results = { passed, failed }
+            }
+
+            run().catch((err) => {
+                assert(false, 'crashed: ' + err.message)
+                window.__results = { passed, failed }
+            })
+        </script>
+    </body>
+</html>
