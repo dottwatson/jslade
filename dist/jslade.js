@@ -266,12 +266,20 @@ ${def.markup || ''}
         return lastIndex === 0 ? text : result + text.slice(lastIndex)
     }
     function scopeStylesheet(cssText, scopeId) {
+        const scopeAttr = `[style-scoped="${scopeId}"]`
         return cssText.replace(/([^\r\n,{}]+)(?=\s*\{)/g, (selectorPart) => {
             const trimmed = selectorPart.trim()
             if (!trimmed || trimmed.startsWith('@') || trimmed.startsWith(':')) return selectorPart
             return selectorPart
                 .split(',')
-                .map((part) => `[style-scoped="${scopeId}"] ${part.trim()}`)
+                .map((part) => {
+                    const sel = part.trim()
+                    const descendant = `${scopeAttr} ${sel}`
+                    if (/^[.#\[]/.test(sel)) {
+                        return `${descendant}, ${scopeAttr}${sel}`
+                    }
+                    return descendant
+                })
                 .join(',')
         })
     }

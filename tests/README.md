@@ -7,6 +7,7 @@ npm run test:ci    # build + unit + browser
 npm test           # unit + browser (requires existing dist/)
 npm run test:unit  # Node only
 npm run test:browser
+npm run test:coverage  # unit tests + c8 report for src/jslade/
 ```
 
 ## Layout
@@ -16,6 +17,7 @@ npm run test:browser
 | `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, public API, min bundle symbols |
 | `tests/patch.html` | Playwright | DOM morphing — focus, keys, children, attributes, render loop guard |
 | `tests/browser/integration.html` | Playwright | `import`/`start`, `render()`, reactive `renderTo`, Wire, `list()` |
+| `tests/browser/scoped-css.html` | Playwright | Scoped CSS at runtime — injection, `style-scoped`, silent failure mode |
 | `tests/browser/bundle-min.html` | Playwright | Production `dist/jslade.min.js` smoke test |
 
 ## CI

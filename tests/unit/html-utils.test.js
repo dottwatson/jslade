@@ -24,7 +24,9 @@ describe('escapeHtml', () => {
 describe('scopeStylesheet', () => {
     it('prefixes selectors with scope attribute', () => {
         const css = '.row { color: red; }'
-        assert.match(scopeStylesheet(css, 'tpl-demo'), /\[style-scoped="tpl-demo"\] \.row/)
+        const scoped = scopeStylesheet(css, 'tpl-demo')
+        assert.match(scoped, /\[style-scoped="tpl-demo"\] \.row/)
+        assert.match(scoped, /\[style-scoped="tpl-demo"\]\.row/)
     })
 })
 

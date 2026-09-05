@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jslade — scoped CSS tests</title>
+        <style>
+            body { font-family: ui-monospace, monospace; margin: 1rem; color: rgb(0, 0, 0); }
+            .ok::before { content: '✓ '; color: #080; }
+            .ko::before { content: '✗ '; color: #c00; }
+            .ko { color: #c00; }
+            #stage { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; }
+        </style>
+    </head>
+    <body>
+        <ul id="out"></ul>
+        <div id="stage"></div>
+        <script src="../../dist/jslade.js"></script>
+        <script>
+            const out = document.getElementById('out')
+            let passed = 0
+            let failed = 0
+            const SCOPED_RED = 'rgb(200, 50, 50)'
+
+            function assert(condition, message) {
+                const li = document.createElement('li')
+                li.className = condition ? 'ok' : 'ko'
+                li.textContent = message
+                out.appendChild(li)
+                condition ? passed++ : failed++
+            }
+
+            function rgb(el) {
+                return getComputedStyle(el).color
+            }
+
+            // ── scoped CSS applies when <style scoped> + style-scoped match ─────
+            {
+                Jslade.compile('css/scoped-ok', {
+                    script: 'props({})',
+                    markup: '<div style-scoped class="scoped-box">ok</div>',
+                    scopedStyles: '.scoped-box { color: rgb(200, 50, 50); }',
+                    scopeTargets: true,
+                })
+
+                const host = document.createElement('div')
+                document.getElementById('stage').appendChild(host)
+                const root = Jslade.renderTo(host, 'css/scoped-ok', {})
+                const el = root.find('.scoped-box')
+
+                assert(el.hasAttribute('style-scoped'), 'style-scoped attribute is injected on markup root')
+                assert(rgb(el) === SCOPED_RED, 'scoped rule applies in the live DOM')
+                assert(
+                    document.querySelector('style[data-template-scope="css/scoped-ok"]'),
+                    'scoped stylesheet is injected into document head'
+                )
+            }
+
+            // ── without style-scoped: rules compile but do not apply (silent failure) ─
+            {
+                Jslade.compile('css/scoped-silent', {
+                    script: 'props({})',
+                    markup: '<div class="plain-box">plain</div>',
+                    scopedStyles: '.plain-box { color: rgb(200, 50, 50); }',
+                    scopeTargets: false,
+                })
+
+                const host = document.createElement('div')
+                document.getElementById('stage').appendChild(host)
+                const root = Jslade.renderTo(host, 'css/scoped-silent', {})
+                const el = root.find('.plain-box')
+
+                assert(!el.hasAttribute('style-scoped'), 'no style-scoped attribute without markup flag')
+                assert(
+                    !document.querySelector('style[data-template-scope="css/scoped-silent"]'),
+                    'no scoped stylesheet injected when scopeTargets is false'
+                )
+                assert(rgb(el) !== SCOPED_RED, 'scoped CSS does not apply without style-scoped + scopeTargets')
+            }
+
+            // ── plain <style> without scoped is ignored (no global injection) ─────
+            {
+                Jslade.compile('css/global-ignored', {
+                    script: 'props({})',
+                    markup: '<div style-scoped class="global-box">g</div>',
+                    scopedStyles: '.global-box { color: rgb(200, 50, 50); }',
+                    scopeTargets: true,
+                })
+
+                // Replace scopedStyles path — compile() already ran; use fresh template without scoped tag semantics
+                Jslade.compile('css/no-scoped-tag', {
+                    script: 'props({})',
+                    markup: '<div class="orphan-box">orphan</div>',
+                    scopedStyles: '',
+                    scopeTargets: false,
+                })
+
+                const host = document.createElement('div')
+                document.getElementById('stage').appendChild(host)
+                const root = Jslade.renderTo(host, 'css/no-scoped-tag', {})
+                const el = root.find('.orphan-box')
+
+                assert(
+                    !document.querySelector('style[data-template-scope="css/no-scoped-tag"]'),
+                    'empty scopedStyles produces no style tag'
+                )
+                assert(rgb(el) !== SCOPED_RED, 'no accidental styling without scoped pipeline')
+            }
+
+            window.__results = { passed, failed }
+        </script>
+    </body>
+</html>

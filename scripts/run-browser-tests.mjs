@@ -15,6 +15,7 @@ const distFile = path.join(packageRoot, 'dist', 'jslade.js')
 const BROWSER_SUITES = [
     { name: 'DOM patch', path: '/tests/patch.html' },
     { name: 'Integration', path: '/tests/browser/integration.html' },
+    { name: 'Scoped CSS', path: '/tests/browser/scoped-css.html' },
     { name: 'Min bundle', path: '/tests/browser/bundle-min.html' },
 ]
 

@@ -25,3 +25,6 @@ jobs:
 
             - name: Build and test
               run: npm run test:ci
+
+            - name: Unit test coverage
+              run: npm run test:coverage

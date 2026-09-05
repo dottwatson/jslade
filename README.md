@@ -1,6 +1,6 @@
 # Jslade
 
-[![npm version](https://img.shields.io/npm/v/jslade.svg)](https://www.npmjs.com/package/jslade) [![license](https://img.shields.io/npm/l/jslade.svg)](LICENSE.md)
+[![npm version](https://img.shields.io/npm/v/jslade.svg)](https://www.npmjs.com/package/jslade) [![tests](https://github.com/dottwatson/jslade/actions/workflows/test.yml/badge.svg)](https://github.com/dottwatson/jslade/actions/workflows/test.yml) [![license](https://img.shields.io/npm/l/jslade.svg)](LICENSE.md)
 
 **Client-side components for server-rendered pages.**  
 Blade-like templates, reactive `state`, scoped CSS — one script tag, no SPA required.
