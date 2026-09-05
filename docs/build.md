@@ -282,6 +282,11 @@ When you push changes under `docs/` to **`main`**, the workflow
 [GitHub Wiki](https://github.com/dottwatson/jslade/wiki) automatically. Do not edit wiki
 pages in the GitHub UI; changes would be overwritten on the next sync.
 
+**First time only:** GitHub creates the wiki git repository after the first page exists.
+Open [Create wiki page](https://github.com/dottwatson/jslade/wiki/_new), save any placeholder
+(for example title **Home**, body `init`), then run the workflow below — all later syncs are
+automatic.
+
 To run a sync manually: **Actions → Sync wiki from docs → Run workflow**.
 
 To test locally (optional):
