@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Jslade — playground</title>
+        <style>
+            :root {
+                --bg: #f6f7f9;
+                --card: #ffffff;
+                --ink: #14181f;
+                --muted: #5c6672;
+                --line: #e3e7ec;
+                --accent: #2563eb;
+                --ok: #087f5b;
+                --fail: #c92a2a;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+                margin: 0;
+                min-height: 100vh;
+                background: var(--bg);
+                color: var(--ink);
+                line-height: 1.55;
+                display: flex;
+                flex-direction: column;
+            }
+
+            header {
+                padding: 1.25rem 1.25rem 0.75rem;
+                border-bottom: 1px solid var(--line);
+                background: var(--card);
+            }
+
+            h1 {
+                font-size: 1.35rem;
+                letter-spacing: -0.02em;
+                margin: 0 0 0.25rem;
+            }
+
+            .lead {
+                color: var(--muted);
+                margin: 0;
+                font-size: 0.9rem;
+            }
+
+            .lead a {
+                color: var(--accent);
+            }
+
+            code {
+                font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                font-size: 0.86em;
+                background: #eceff3;
+                padding: 0.1em 0.35em;
+                border-radius: 4px;
+            }
+
+            .toolbar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem 0.75rem;
+                align-items: center;
+                padding: 0.75rem 1.25rem;
+                border-bottom: 1px solid var(--line);
+                background: var(--card);
+            }
+
+            .toolbar label {
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--muted);
+                font-weight: 600;
+            }
+
+            .toolbar select,
+            .toolbar input[type="text"] {
+                font: inherit;
+                font-size: 0.88rem;
+                padding: 0.35rem 0.55rem;
+                border: 1px solid var(--line);
+                border-radius: 6px;
+                background: #fff;
+            }
+
+            .toolbar input[type="text"] {
+                flex: 1 1 12rem;
+                min-width: 8rem;
+                font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+            }
+
+            button.run {
+                font: inherit;
+                font-size: 0.88rem;
+                font-weight: 600;
+                padding: 0.4rem 0.9rem;
+                border: none;
+                border-radius: 6px;
+                background: var(--accent);
+                color: #fff;
+                cursor: pointer;
+            }
+
+            button.run:hover {
+                filter: brightness(1.05);
+            }
+
+            .status {
+                margin-left: auto;
+                font-size: 0.88rem;
+                font-weight: 600;
+            }
+
+            .status.ok {
+                color: var(--ok);
+            }
+
+            .status.fail {
+                color: var(--fail);
+            }
+
+            .workspace {
+                flex: 1;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                min-height: 0;
+            }
+
+            @media (max-width: 860px) {
+                .workspace {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .pane {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                border-right: 1px solid var(--line);
+            }
+
+            .pane:last-child {
+                border-right: none;
+            }
+
+            .pane-head {
+                padding: 0.55rem 1rem;
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                color: var(--muted);
+                font-weight: 600;
+                border-bottom: 1px solid var(--line);
+                background: #eef1f5;
+            }
+
+            #source {
+                flex: 1;
+                width: 100%;
+                min-height: 16rem;
+                margin: 0;
+                padding: 1rem;
+                border: none;
+                resize: none;
+                font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                font-size: 0.82rem;
+                line-height: 1.6;
+                background: #11151b;
+                color: #cbd5e1;
+                tab-size: 4;
+            }
+
+            #source:focus {
+                outline: 2px solid var(--accent);
+                outline-offset: -2px;
+            }
+
+            #preview-wrap {
+                flex: 1;
+                overflow: auto;
+                padding: 1.25rem;
+                background: var(--card);
+            }
+
+            .clone-slot {
+                border: 1px dashed var(--line);
+                border-radius: 8px;
+                padding: 0.85rem 1rem;
+                background: #fff;
+                margin-bottom: 0.85rem;
+            }
+
+            .clone-slot.is-hidden {
+                display: none;
+            }
+
+            .clone-label {
+                font-size: 0.72rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--muted);
+                margin-bottom: 0.55rem;
+            }
+
+            #error {
+                margin: 0;
+                padding: 0.75rem 1.25rem;
+                background: #fff5f5;
+                color: var(--fail);
+                font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                font-size: 0.78rem;
+                line-height: 1.55;
+                white-space: pre-wrap;
+                border-top: 1px solid #ffc9c9;
+                display: none;
+            }
+
+            #error:not(:empty) {
+                display: block;
+            }
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <h1>Jslade playground</h1>
+            <p class="lead">
+                Every example is a <code>&lt;noembed&gt;</code> block in this page —
+                registered by <code>scanDOM()</code>, mounted on the
+                <code>&lt;jslade&gt;</code> placeholders in the preview. Edit the source, press
+                <strong>Run</strong> (<kbd>Ctrl</kbd>+<kbd>Enter</kbd>). No
+                <code>import()</code>, no localStorage.
+            </p>
+        </header>
+
+        <div class="toolbar">
+            <label for="preset">Example</label>
+            <select id="preset">
+                <option value="counter">Counter</option>
+                <option value="hello">Hello buttons</option>
+                <option value="list">Todo list</option>
+            </select>
+            <label for="props">Props</label>
+            <input id="props" type="text" value="{}" spellcheck="false" placeholder='{ count: 0 }'
+            aria-label="Component props">
+            <label for="clones">Clones</label>
+            <select id="clones" aria-label="Number of in-page instances">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+            </select>
+            <button type="button" class="run" id="run-btn">Run</button>
+            <span id="status" class="status">Ready</span>
+        </div>
+
+        <div class="workspace">
+            <section class="pane">
+                <div class="pane-head">Component source</div>
+                <textarea id="source" spellcheck="false" aria-label="Component source"></textarea>
+            </section>
+            <section class="pane">
+                <div class="pane-head">Preview — in-page &lt;jslade&gt;</div>
+                <div id="preview-wrap">
+                    <div class="clone-slot" data-clone="1">
+                        <div class="clone-label">Instance 1</div>
+                        <jslade name="playground/counter" props='{}'></jslade>
+                    </div>
+                    <div class="clone-slot" data-clone="2">
+                        <div class="clone-label">Instance 2</div>
+                        <jslade name="playground/counter" props='{}'></jslade>
+                    </div>
+                    <div class="clone-slot is-hidden" data-clone="3">
+                        <div class="clone-label">Instance 3</div>
+                        <jslade name="playground/counter" props='{}'></jslade>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <pre id="error" aria-live="polite"></pre>
+
+        <!-- In-page definitions — scanDOM(); compiled nodes are removed from the DOM by the engine -->
+        <div id="def-anchor" hidden aria-hidden="true">
+            <noembed name="playground/counter" data-preset="counter">
+                <script>
+                    props({ count: 0 })
+
+                    function inc() {
+                        this.state.count++
+                    }
+
+                    function dec() {
+                        this.state.count = Math.max(0, this.state.count - 1)
+                    }
+                </script>
+
+                <template>
+                    <div>
+                        <p>Count: <strong>{{ count }}</strong></p>
+                        <button type="button" @click(this.dec())">−</button>
+                        <button type="button" @click(this.inc())">+</button>
+                    </div>
+                </template>
+            </noembed>
+
+            <noembed name="playground/hello" data-preset="hello">
+                <script>
+                    props({
+                        names: ['Alice', 'Bob', 'Carlo'],
+                        selected: null,
+                    })
+
+                    function greet(e) {
+                        this.state.selected = e.currentTarget.getAttribute('data-person')
+                    }
+                </script>
+
+                <style scoped>
+                    .row {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 0.4rem;
+                        align-items: center;
+                    }
+
+                    .msg {
+                        margin: 0.5rem 0 0;
+                        font-weight: 600;
+                        color: #2563eb;
+                    }
+                </style>
+
+                <template>
+                    <div style-scoped class="row">
+                        @foreach(names as person)
+                            <button type="button" data-person="{{ person }}" @click(this.greet(event))>{{ person }}</button>
+                        @endforeach
+                        @if(selected)
+                            <p class="msg">Hello, {{ selected }}!</p>
+                        @endif
+                    </div>
+                </template>
+            </noembed>
+
+            <noembed name="playground/todos" data-preset="list">
+                <script>
+                    props({ items: ['Learn Jslade', 'Edit this list'], draft: '' })
+
+                    function onDraft(e) {
+                        this.draft = e.target.value
+                    }
+
+                    function add() {
+                        var text = (this.draft || '').trim()
+                        if (!text) return
+                        this.state.items = this.state.items.concat(text)
+                        this.draft = ''
+                    }
+
+                    function remove(e) {
+                        var i = Number(e.currentTarget.getAttribute('data-i'))
+                        this.state.items = this.state.items.filter(function (_, idx) { return idx !== i })
+                    }
+                </script>
+
+                <template>
+                    <div>
+                        <ul>
+                            @foreach(items as item)
+                                <li>
+                                    {{ item }}
+                                    <button type="button" data-i="{{ $loop.index }}" @click(this.remove(event))">×</button>
+                                </li>
+                            @endforeach
+                        </ul>
+                        <input type="text" value="{{ draft }}" @input(this.onDraft(event)) placeholder="New item…">
+                        <button type="button" @click(this.add())">Add</button>
+                    </div>
+                </template>
+            </noembed>
+        </div>
+
+        <script src="../../dist/jslade.min.js"></script>
+            <script>
+                (function () {
+                    var sourceEl = document.getElementById('source')
+                    var propsEl = document.getElementById('props')
+                    var clonesEl = document.getElementById('clones')
+                    var presetEl = document.getElementById('preset')
+                    var statusEl = document.getElementById('status')
+                    var errorEl = document.getElementById('error')
+                    var defAnchorEl = document.getElementById('def-anchor')
+                    var previewWrapEl = document.getElementById('preview-wrap')
+                    var lastMountedName = null
+
+                    function normalizeName(name) {
+                        return String(name).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+                    }
+
+                    function parseComponentName(source) {
+                        var match = source.match(/<noembed\s+name="([^"]+)"/i)
+                        if (!match) return null
+                        return normalizeName(match[1])
+                    }
+
+                    function readPresetDefinition(presetKey) {
+                        var el = defAnchorEl.querySelector('noembed[data-preset="' + presetKey + '"]')
+                        return el ? el.outerHTML : ''
+                    }
+
+                    function writePresetDefinition(presetKey, element) {
+                        element.setAttribute('data-preset', presetKey)
+                        var existing = defAnchorEl.querySelector('noembed[data-preset="' + presetKey + '"]')
+                        if (existing) existing.replaceWith(element)
+                        else defAnchorEl.appendChild(element)
+                    }
+
+                    function purgeComponent(name) {
+                        if (!name) return
+                        delete Jslade.compiledComponents[name]
+                        delete Jslade._sourceComponents[name]
+                    }
+
+                    function unmountPlaceholder(el) {
+                        if (el.component && !el.component._unmounted) {
+                            el.component.unmount()
+                        }
+                        el.component = null
+                    }
+
+                    function applyCloneSlots(componentName) {
+                        var count = Math.max(1, Math.min(3, Number(clonesEl.value) || 1))
+                        var slots = previewWrapEl.querySelectorAll('.clone-slot')
+                        var mounts = []
+
+                        for (var i = 0; i < slots.length; i++) {
+                            var slot = slots[i]
+                            var n = Number(slot.getAttribute('data-clone'))
+                            var show = n <= count
+                            var mount = slot.querySelector('jslade')
+
+                            slot.classList.toggle('is-hidden', !show)
+
+                            if (!mount) continue
+
+                            if (!show) {
+                                unmountPlaceholder(mount)
+                                mount.removeAttribute('name')
+                                mount.removeAttribute('props')
+                                continue
+                            }
+
+                            mount.setAttribute('name', componentName)
+                            mounts.push(mount)
+                        }
+
+                        return mounts
+                    }
+
+                    function syncDefinitionToPage(source, presetKey) {
+                        var wrap = document.createElement('div')
+                        wrap.innerHTML = source.trim()
+                        var next = wrap.firstElementChild
+
+                        if (!next || next.tagName.toLowerCase() !== 'noembed') {
+                            throw new Error('Source must be a single <noembed> … </noembed> block.')
+                        }
+
+                        writePresetDefinition(presetKey, next)
+
+                        return parseComponentName(source)
+                    }
+
+                    function syncMountProps(mounts, props) {
+                        var json = JSON.stringify(props)
+                        mounts.forEach(function (el) {
+                            unmountPlaceholder(el)
+                            el.setAttribute('props', json)
+                        })
+                    }
+
+                    function setStatus(text, kind) {
+                        statusEl.textContent = text
+                        statusEl.className = 'status' + (kind ? ' ' + kind : '')
+                    }
+
+                    function parseProps(raw) {
+                        if (!raw) return {}
+
+                        var props
+                        try {
+                            props = JSON.parse(raw)
+                        } catch (_) {
+                            try {
+                                props = Function('return (' + raw + ')')()
+                            } catch (err) {
+                                throw new Error(
+                                    'Invalid props — use JSON or object literal, e.g. { "count": 0 } or { count: 0 }'
+                                )
+                            }
+                        }
+
+                        if (props === null || typeof props !== 'object' || Array.isArray(props)) {
+                            throw new Error('Props must be an object, e.g. { count: 0 }')
+                        }
+
+                        return props
+                    }
+
+                    function run() {
+                        errorEl.textContent = ''
+                        setStatus('Running…')
+
+                        try {
+                            var presetKey = presetEl.value
+                            var source = sourceEl.value.trim()
+                            if (!source) throw new Error('Component source is empty.')
+
+                            var name = syncDefinitionToPage(source, presetKey)
+                            if (!name) {
+                                throw new Error('Missing <noembed name="your/name"> … </noembed>')
+                            }
+
+                            var propsRaw = propsEl.value.trim()
+                            var props = parseProps(propsRaw)
+                            var mounts = applyCloneSlots(name)
+
+                            if (lastMountedName && lastMountedName !== name) purgeComponent(lastMountedName)
+                            purgeComponent(name)
+
+                            syncMountProps(mounts, props)
+
+                            Jslade.scanDOM()
+                            Jslade.start({ root: previewWrapEl, dev: true })
+
+                            for (var m = 0; m < mounts.length; m++) {
+                                if (!mounts[m].component) {
+                                    throw new Error('Instance ' + (m + 1) + ' did not mount — check component syntax.')
+                                }
+                            }
+
+                            lastMountedName = name
+                            setStatus('Mounted ' + mounts.length + '× ' + name + ' (scanDOM)', 'ok')
+                        } catch (err) {
+                            setStatus('Error', 'fail')
+                            errorEl.textContent = err.message || String(err)
+                        }
+                    }
+
+                    function loadPreset(key) {
+                        var source = readPresetDefinition(key)
+                        if (!source) return
+                        sourceEl.value = source
+                        propsEl.value = '{}'
+                        run()
+                    }
+
+                    presetEl.addEventListener('change', function () {
+                        loadPreset(presetEl.value)
+                    })
+
+                    document.getElementById('run-btn').addEventListener('click', run)
+
+                    sourceEl.addEventListener('keydown', function (e) {
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                            e.preventDefault()
+                            run()
+                        }
+                    })
+
+                    loadPreset('counter')
+                })()
+        </script>
+    </body>
+
+</html>

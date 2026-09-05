@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jslade — Sandbox</title>
+    <style>
+        :root {
+            --bg: #f6f7f9;
+            --card: #fff;
+            --ink: #14181f;
+            --muted: #5c6672;
+            --line: #e3e7ec;
+            --accent: #2563eb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+            max-width: 58rem;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 4rem;
+            background: var(--bg);
+            color: var(--ink);
+            line-height: 1.55;
+        }
+        header { margin-bottom: 2rem; }
+        h1 { font-size: 1.75rem; margin: 0 0 .35rem; letter-spacing: -.02em; }
+        .lead { color: var(--muted); margin: 0; }
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: .75rem;
+            padding: 1.25rem 1.35rem;
+            margin-bottom: 1.25rem;
+        }
+        .panel h2 {
+            font-size: .78rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin: 0 0 .85rem;
+        }
+        #boot-status { font-weight: 600; color: var(--accent); }
+        pre {
+            margin: 0;
+            padding: .85rem 1rem;
+            background: #0f1115;
+            color: #d8dee9;
+            border-radius: .5rem;
+            font-size: .82rem;
+            overflow-x: auto;
+        }
+        code { font-family: ui-monospace, "Cascadia Code", monospace; font-size: .9em; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Jslade sandbox</h1>
+        <p class="lead">
+            Static demo — run <code>npm run dev</code> from the package root.
+            Components load from <code>playgrounds/sandbox/components/demo/*.jsd</code>.
+        </p>
+    </header>
+
+    <div class="panel">
+        <h2>Status</h2>
+        <p id="boot-status">Loading…</p>
+    </div>
+
+    <div class="panel">
+        <h2>Rendered component</h2>
+        <jslade name="demo/showcase" props='{ "title": "Sandbox — this &amp; scope" }'></jslade>
+    </div>
+
+    <div class="panel">
+        <h2>Scope log</h2>
+        <pre id="scope-log"></pre>
+    </div>
+
+    <script>
+        window.__showcaseHelpers = {
+            euro: function (n) {
+                return '\u20AC' + Number(n || 0).toFixed(2)
+            },
+        }
+    </script>
+        <script src="../../dist/jslade.min.js"></script>
+    <script type="module">
+        const statusEl = document.getElementById('boot-status')
+        const logEl = document.getElementById('scope-log')
+        const componentPaths = [
+            'demo/showcase.jsd',
+            'demo/showcase-chip.jsd',
+        ]
+
+        function log(msg) {
+            logEl.textContent += msg + '\n'
+        }
+
+        try {
+            const templates = {}
+            for (const path of componentPaths) {
+                const res = await fetch('./components/' + path)
+                if (!res.ok) throw new Error('Failed to load ./components/' + path)
+                const raw = await res.text()
+                const match = raw.match(/<noembed\s+name="([^"]+)"/)
+                if (!match) throw new Error('No component name in ' + path)
+                templates[match[1]] = raw
+            }
+
+            Jslade.import(templates)
+            Jslade.start({ dev: true })
+
+            const root = document.querySelector('jslade[name="demo/showcase"]').component
+            if (!root) throw new Error('Placeholder was not mounted')
+
+            log('instance.id = ' + root.id + '   template = ' + root.template)
+            log('scopeReport() = ' + root.scopeReport())
+            log('state.title = ' + root.state.title)
+            log('children = ' + root.children.length + ' (chip components)')
+            log('Jslade.instances() = ' + Object.keys(Jslade.instances()).join(', '))
+            log('Jslade.list() = ' + Jslade.list().join(', '))
+
+            statusEl.textContent = 'Mounted — try the filters, rows, chips and checkboxes'
+        } catch (err) {
+            statusEl.textContent = 'Error: ' + err.message
+            console.error(err)
+        }
+    </script>
+</body>
+</html>

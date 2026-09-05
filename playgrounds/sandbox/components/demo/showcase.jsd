@@ -1,0 +1,285 @@
+<noembed name="demo/showcase">
+    <script>
+        use({ euro: window.__showcaseHelpers.euro })
+
+        props({
+            title: "Task board",
+            filterMode: "all",
+            query: "",
+            selectedId: null,
+            showDetail: false,
+            childMessage: "",
+            scopeNotes: "",
+            categories: [
+                {
+                    name: "Frontend",
+                    items: [
+                        { id: 1, label: "Markup @if", done: false, price: 9.5 },
+                        { id: 2, label: "Scoped CSS", done: true, price: 3 },
+                    ],
+                },
+                {
+                    name: "Logic",
+                    items: [
+                        { id: 3, label: "this in methods", done: false, price: 12 },
+                        { id: 4, label: "@click scope", done: false, price: 7.5 },
+                    ],
+                },
+            ],
+        })
+
+        function scopeReport() {
+            var viaProp = this.filterMode
+            var viaState = this.state.filterMode
+            var titleProp = this.title
+            var titleState = this.state.title
+            return (
+                "filterMode: this.filterMode=" +
+                viaProp +
+                " | this.state.filterMode=" +
+                viaState +
+                " — title: this.title=" +
+                titleProp +
+                " | this.state.title=" +
+                titleState
+            )
+        }
+
+        function allTasksFlat() {
+            var out = []
+            var cats = this.state.categories
+            for (var c = 0; c < cats.length; c++) {
+                var items = cats[c].items
+                for (var i = 0; i < items.length; i++) out.push(items[i])
+            }
+            return out
+        }
+
+        function visibleTasks() {
+            var q = (this.state.query || "").toLowerCase()
+            var mode = this.state.filterMode
+            return this.allTasksFlat().filter(function (t) {
+                if (mode === "active" && t.done) return false
+                if (mode === "done" && !t.done) return false
+                if (q && t.label.toLowerCase().indexOf(q) === -1) return false
+                return true
+            })
+        }
+
+        function rowClass(task) {
+            var sel = this.state.selectedId === task.id
+            return "row" + (task.done ? " done" : "") + (sel ? " selected" : "")
+        }
+
+        function selectedLabel() {
+            var id = this.state.selectedId
+            if (id == null) return ""
+            var tasks = this.allTasksFlat()
+            for (var i = 0; i < tasks.length; i++) {
+                if (tasks[i].id === id) return tasks[i].label
+            }
+            return "?"
+        }
+
+        function cycleFilter() {
+            var order = ["all", "active", "done"]
+            var i = order.indexOf(this.state.filterMode)
+            this.state.filterMode = order[(i + 1) % order.length]
+            this.state.scopeNotes = "cycleFilter(): this.filterMode=" + this.filterMode
+        }
+
+        function selectTask(id) {
+            this.state.selectedId = id
+            this.state.showDetail = true
+            this.state.scopeNotes = "selectTask(): this.selectedId=" + this.selectedId + " (prop shortcut)"
+            Jslade.send("showcase/select", { id: id })
+        }
+
+        function toggleDone(taskId) {
+            var id = Number(taskId)
+            var cats = this.state.categories
+            for (var c = 0; c < cats.length; c++) {
+                var items = cats[c].items
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].id === id) {
+                        items[i].done = !items[i].done
+                        this.state.scopeNotes = "toggleDone(): id=" + id + " done=" + items[i].done
+                        return
+                    }
+                }
+            }
+        }
+
+        function clearSelection() {
+            this.state.selectedId = null
+            this.state.showDetail = false
+        }
+
+        function resetQuery() {
+            this.state.query = ""
+        }
+
+        mount((send, receive) => {
+            receive("showcase/ping", (data) => {
+                this.state.childMessage = "WireBus da " + data.from + " id=" + data.id
+            })
+            this.state.scopeNotes = "mount(): this === instance, this.container tagName=" + this.container.tagName
+        })
+    </script>
+
+    <style scoped>
+        .board {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem 1.1rem;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .toolbar input {
+            flex: 1;
+            min-width: 10rem;
+            padding: 0.35rem 0.5rem;
+        }
+        .btn {
+            padding: 0.35rem 0.65rem;
+            border: 1px solid #ced4da;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn.primary {
+            background: #0d6efd;
+            color: #fff;
+            border-color: #0d6efd;
+        }
+        .meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin: 0.5rem 0;
+        }
+        .scope-box {
+            background: #f1f3f5;
+            padding: 0.5rem 0.65rem;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            margin-bottom: 0.75rem;
+        }
+        .cat {
+            margin-top: 0.85rem;
+        }
+        .cat h3 {
+            margin: 0 0 0.35rem;
+            font-size: 0.95rem;
+        }
+        ul.tasks {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        li.row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.4rem;
+            border-radius: 4px;
+        }
+        li.row.selected {
+            background: #d8bfd8;
+        }
+        li.row.done {
+            opacity: 0.65;
+            text-decoration: line-through;
+        }
+        .loop-tag {
+            font-size: 0.7rem;
+            color: #0d6efd;
+        }
+        .detail {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px dashed #ced4da;
+        }
+        .empty {
+            color: #868e96;
+            font-style: italic;
+        }
+    </style>
+
+    <template>
+        <div style-scoped class="board">
+            <h2>{{ title }}</h2>
+            <p class="meta">{{ scopeReport() }}</p>
+            <div class="scope-box">Ultima azione scope: {{ scopeNotes || "—" }}</div>
+            @if(childMessage)
+                <p class="meta wire">Wire / figlio: {{ childMessage }}</p>
+            @endif
+
+            <div class="toolbar">
+                <input type="search" placeholder="Filtra (this.state.query)" value="{{ query }}"
+                @input(this.state.query = event.target.value)
+                @keydown(if(event.key === 'Escape') this.resetQuery())>
+                <button type="button" class="btn" @click(this.cycleFilter())>Filtro: {{ filterMode }}</button>
+                <button type="button" class="btn" @click(this.clearSelection())>Deseleziona</button>
+                <button type="button" class="btn primary" @click(this.state.showDetail = !this.state.showDetail)>
+                    Toggle dettaglio (@@click su this.state)
+                </button>
+            </div>
+
+            @if(filterMode === "all" && !query)
+                <p class="meta">@@if: nessun filtro attivo — mostra tutte le categorie.</p>
+                @elseif(filterMode === "done")
+                <p class="meta">@@elseif: solo task completate.</p>
+                @else
+                <p class="meta">@@else: filtro "{{ filterMode }}"@if(query) + ricerca "{{ query }}"@endif.</p>
+            @endif
+
+            @foreach(categories as category)
+                <section class="cat">
+                    <h3>{{ category.name }} @if($loop.first)(prima categoria — $loop.first)@endif</h3>
+                    <ul class="tasks">
+                        @foreach(category.items as task)
+                            @if(task.id === selectedId || filterMode !== "done" || task.done)
+                                <li class="{{ rowClass(task) }}" data-task-id="{{ task.id }}" @click(this.selectTask(Number(event.currentTarget.getAttribute('data-task-id'))))>
+                                    <input type="checkbox" data-task-id="{{ task.id }}"
+                                    @change(this.toggleDone(event.currentTarget.getAttribute('data-task-id'))) @click(event.stopPropagation())
+                                    {{ task.done ? "checked" : "" }}>
+                                    <span>{{ task.label }} — {{ euro(task.price) }}</span>
+                                    <span class="loop-tag">$loop {{ $loop.index + 1 }}/{{ $loop.count }}
+                                        @if($loop.last) last @endif
+                                        </span>
+                                    </li>
+                                @endif
+                            @endforeach
+                        </ul>
+                    </section>
+                @endforeach
+
+                <h3 class="meta">Lista piatta filtrata (metodo + @@foreach)</h3>
+                @if(visibleTasks().length === 0)
+                    <p class="empty">Nessun task visibile.</p>
+                    @else
+                    <ul class="tasks">
+                        @foreach(visibleTasks() as task)
+                            <li class="{{ rowClass(task) }}" key="{{ task.id }}">
+                                {{ task.label }}
+                                @component('demo/showcase-chip', { key: task.id, taskId: task.id, label: task.label, highlight: task.id === selectedId })
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if(showDetail && selectedId !== null)
+                    <div class="detail">
+                        <strong>Dettaglio:</strong> {{ selectedLabel() }} (id {{ selectedId }})
+                        @component('demo/showcase-chip', { taskId: selectedId, label: selectedLabel(), highlight: true })
+                    </div>
+                @endif
+            </div>
+        </template>
+    </noembed>

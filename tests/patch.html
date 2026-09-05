@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jslade — DOM patching tests</title>
+        <style>
+            body {
+                font: 14px/1.6 ui-monospace, monospace;
+                margin: 2rem;
+                background: #0f1115;
+                color: #d8dee9;
+            }
+            h1 {
+                font-size: 1rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #8fa1b3;
+            }
+            li {
+                list-style: none;
+            }
+            .ok::before {
+                content: '✓ ';
+                color: #7fd18b;
+            }
+            .ko::before {
+                content: '✗ ';
+                color: #e06c75;
+            }
+            .ko {
+                color: #e06c75;
+            }
+            #summary {
+                margin-top: 1.5rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid #2b303b;
+            }
+            #stage {
+                position: absolute;
+                left: -9999px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Jslade — DOM patching tests</h1>
+        <ul id="out"></ul>
+        <div id="summary">running…</div>
+        <div id="stage"></div>
+
+        <script src="../dist/jslade.js"></script>
+        <script>
+            const out = document.getElementById('out')
+            let passed = 0
+            let failed = 0
+
+            function assert(condition, message) {
+                const li = document.createElement('li')
+                li.className = condition ? 'ok' : 'ko'
+                li.textContent = message
+                out.appendChild(li)
+                condition ? passed++ : failed++
+            }
+
+            const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+            function host() {
+                const el = document.createElement('div')
+                document.getElementById('stage').appendChild(el)
+                return el
+            }
+
+            function define(name, script, markup) {
+                Jslade.compile(name, { script, markup, scopedStyles: '', scopeTargets: false })
+            }
+
+            window.__log = []
+
+            define(
+                'p/leaf',
+                'props({ label: "a", n: 0 })\n' +
+                    'function mount() { __log.push("mount:" + this.label) }\n' +
+                    'function unmount() { __log.push("unmount:" + this.label) }\n' +
+                    'function bump() { this.n = this.n + 1 }',
+                '<span class="leaf" @click(this.bump())>{{ label }}/{{ n }}</span>'
+            )
+
+            async function run() {
+                // ── 1. plain nodes are patched, not rebuilt ──────────────────────────
+                {
+                    define('p/text', 'props({ t: "one" })', '<div><p id="para">{{ t }}</p></div>')
+                    const root = Jslade.renderTo(host(), 'p/text', {})
+                    const para = root.find('#para')
+                    root.state.t = 'two'
+                    await tick()
+                    assert(root.find('#para') === para, 'the element survives a re-render')
+                    assert(para.textContent === 'two', 'its text is updated in place')
+                }
+
+                // ── 2. focus and caret stay put ──────────────────────────────────────
+                {
+                    define('p/input', 'props({ t: "" })', '<div><input id="fld" value="{{ t }}" /><b>{{ t }}</b></div>')
+                    const root = Jslade.renderTo(host(), 'p/input', {})
+                    const field = root.find('#fld')
+                    document.getElementById('stage').style.left = '0'
+                    field.focus()
+                    field.value = 'abcd'
+                    field.setSelectionRange(2, 2)
+                    root.state.t = 'abcd'
+                    await tick()
+                    assert(document.activeElement === field, 'the focused input is never replaced')
+                    assert(field.selectionStart === 2, 'the caret position is untouched')
+                    document.getElementById('stage').style.left = '-9999px'
+                }
+
+                // ── 3. an unbound input keeps what the user typed ────────────────────
+                {
+                    define('p/free', 'props({ t: "x" })', '<div><input id="free" /><b>{{ t }}</b></div>')
+                    const root = Jslade.renderTo(host(), 'p/free', {})
+                    root.find('#free').value = 'typed'
+                    root.state.t = 'y'
+                    await tick()
+                    assert(root.find('#free').value === 'typed', 'an input without value= is left alone')
+                }
+
+                // ── 4. a checkbox follows the template only when the template changes ─
+                {
+                    define('p/check', 'props({ on: false })', '<div><input id="cb" type="checkbox" @if(on) checked @endif /></div>')
+                    const root = Jslade.renderTo(host(), 'p/check', {})
+                    const box = root.find('#cb')
+                    box.checked = true
+                    root.state.on = true
+                    await tick()
+                    assert(box.checked === true, 'checking then declaring checked stays checked')
+                    root.state.on = false
+                    await tick()
+                    assert(box.checked === false, 'dropping checked unchecks it')
+                }
+
+                // ── 5. attributes are added and removed ──────────────────────────────
+                {
+                    define('p/attr', 'props({ cls: "a", extra: true })', '<div id="box" class="{{ cls }}" @if(extra) data-x="1" @endif></div>')
+                    const root = Jslade.renderTo(host(), 'p/attr', {})
+                    root.state.cls = 'b'
+                    root.state.extra = false
+                    await tick()
+                    const box = root.find('#box')
+                    assert(box.className === 'b', 'a changed attribute is written')
+                    assert(!box.hasAttribute('data-x'), 'a dropped attribute is removed')
+                }
+
+                // ── 6. a child instance survives its parent re-rendering ─────────────
+                {
+                    define('p/one', 'props({ tick: 0 })', '<div><i>{{ tick }}</i>@component("p/leaf", { label: "solo" })</div>')
+                    __log.length = 0
+                    const root = Jslade.renderTo(host(), 'p/one', {})
+                    const child = root.children[0]
+                    const node = child.container
+                    child.state.n = 7
+                    await tick()
+                    root.state.tick = 1
+                    await tick()
+                    assert(root.children[0] === child, 'the child instance is reused')
+                    assert(child.container === node, 'the child keeps its DOM node')
+                    assert(child.state.n === 7, 'state the child owns is preserved')
+                    assert(__log.filter((e) => e === 'mount:solo').length === 1, 'mount() runs exactly once')
+                }
+
+                // ── 7. props flow into the surviving child ───────────────────────────
+                {
+                    define('p/pass', 'props({ label: "a" })', '<div>@component("p/leaf", { label: label })</div>')
+                    const root = Jslade.renderTo(host(), 'p/pass', {})
+                    const child = root.children[0]
+                    root.state.label = 'updated'
+                    await tick()
+                    await tick()
+                    assert(root.children[0] === child, 'still the same instance')
+                    assert(child.container.textContent.startsWith('updated'), 'the new prop is rendered')
+                }
+
+                // ── 8. a child dropped by @if is unmounted ───────────────────────────
+                {
+                    define('p/cond', 'props({ show: true })', '<div>@if(show)@component("p/leaf", { label: "gone" })@endif</div>')
+                    __log.length = 0
+                    const root = Jslade.renderTo(host(), 'p/cond', {})
+                    root.state.show = false
+                    await tick()
+                    assert(root.children.length === 0, 'the instance is detached from the parent')
+                    assert(__log.includes('unmount:gone'), 'unmount() is called')
+                    assert(root.container.querySelector('.leaf') === null, 'its DOM is gone')
+                }
+
+                // ── 9. keyed elements keep identity across a reorder ─────────────────
+                {
+                    define('p/list', 'props({ items: [] })', '<ul>@foreach(items as it)<li key="{{ it }}">{{ it }}</li>@endforeach</ul>')
+                    const root = Jslade.renderTo(host(), 'p/list', { items: ['a', 'b', 'c'] })
+                    const first = root.find('li')
+                    root.state.items = ['c', 'b', 'a']
+                    await tick()
+                    const nodes = [...root.findAll('li')]
+                    assert(nodes.map((n) => n.textContent).join('') === 'cba', 'the list is reordered')
+                    assert(nodes[2] === first, 'the keyed node moved instead of being rebuilt')
+                }
+
+                // ── 10. keyed child components follow their data ─────────────────────
+                {
+                    define(
+                        'p/keyed',
+                        'props({ ids: [] })',
+                        '<div>@foreach(ids as id)@component("p/leaf", { key: id, label: id })@endforeach</div>'
+                    )
+                    __log.length = 0
+                    const root = Jslade.renderTo(host(), 'p/keyed', { ids: ['x', 'y', 'z'] })
+                    const byLabel = {}
+                    root.children.forEach((c) => (byLabel[c.state.label] = c))
+                    byLabel.y.state.n = 42
+                    await tick()
+
+                    root.state.ids = ['z', 'y']
+                    await tick()
+                    assert(root.children.length === 2, 'the removed child is dropped')
+                    assert(root.children[0] === byLabel.z, 'the surviving children are reordered, not rebuilt')
+                    assert(byLabel.y.state.n === 42, 'a moved child keeps its own state')
+                    assert(__log.filter((e) => e.startsWith('mount:')).length === 3, 'no child is mounted twice')
+                    assert(__log.includes('unmount:x'), 'the child left out of the list unmounts')
+                    assert(root.container.textContent.replace(/\s+/g, '') === 'z/0y/42', 'the DOM matches the data')
+                }
+
+                // ── 11. an unkeyed list still renders correctly ──────────────────────
+                {
+                    define('p/plain', 'props({ items: [] })', '<ul>@foreach(items as it)<li>{{ it }}</li>@endforeach</ul>')
+                    const root = Jslade.renderTo(host(), 'p/plain', { items: [1, 2] })
+                    root.state.items = [1, 2, 3]
+                    await tick()
+                    assert(
+                        [...root.findAll('li')].map((n) => n.textContent).join('') === '123',
+                        'appending to an unkeyed list works'
+                    )
+                    root.state.items = [9]
+                    await tick()
+                    assert(root.findAll('li').length === 1, 'shrinking an unkeyed list works')
+                }
+
+                // ── 12. nested trees are patched depth-first ─────────────────────────
+                {
+                    define('p/mid', 'props({ label: "m" })', '<div class="mid">@component("p/leaf", { label: label })</div>')
+                    define('p/top', 'props({ label: "t" })', '<div>@component("p/mid", { label: label })</div>')
+                    __log.length = 0
+                    const root = Jslade.renderTo(host(), 'p/top', {})
+                    const mid = root.children[0]
+                    const leaf = mid.children[0]
+                    root.state.label = 'deep'
+                    await tick()
+                    await tick()
+                    await tick()
+                    assert(root.children[0] === mid, 'the middle instance survives')
+                    assert(mid.children[0] === leaf, 'the grandchild survives too')
+                    assert(leaf.container.textContent.startsWith('deep'), 'the prop reached the grandchild')
+                }
+
+                // ── 13. updated() writing to state is still caught ───────────────────
+                {
+                    define('p/loop', 'props({ n: 0 })', '<div>{{ n }}</div>')
+                    Jslade.compiledComponents['p/loop'].hooks = {
+                        updated() {
+                            this.state.n = this.state.n + 1
+                        },
+                    }
+                    const errors = []
+                    const original = console.error
+                    console.error = (...args) => errors.push(String(args[0]))
+                    const root = Jslade.renderTo(host(), 'p/loop', {})
+                    root.state.n = 1
+                    for (let i = 0; i < 80; i++) await tick()
+                    console.error = original
+                    assert(
+                        errors.some((e) => e.includes('render loop stopped')),
+                        'the runaway updated() guard fires'
+                    )
+                    root.unmount()
+                }
+
+                // ── 14. a long-lived child does not exhaust the loop guard ───────────
+                {
+                    define('p/burst', 'props({ n: 0 })', '<div>@component("p/leaf", { label: "burst", n: n })</div>')
+                    const root = Jslade.renderTo(host(), 'p/burst', {})
+                    const child = root.children[0]
+                    for (let i = 1; i <= 60; i++) {
+                        root.state.n = i
+                        await tick()
+                        await tick()
+                    }
+                    assert(root.children[0] === child, 'the child is alive after 60 parent renders')
+                    assert(child.container.textContent === 'burst/60', 'and it is still re-rendering')
+                }
+
+                // ── 15. table rows keep their structure ──────────────────────────────
+                {
+                    define('p/row', 'props({ label: "" })', '<tr><td>{{ label }}</td></tr>')
+                    define(
+                        'p/table',
+                        'props({ rows: [] })',
+                        '<table><tbody>@foreach(rows as r)@component("p/row", { key: r.id, label: r.label })@endforeach</tbody></table>'
+                    )
+                    const root = Jslade.renderTo(host(), 'p/table', {
+                        rows: [
+                            { id: 1, label: 'one' },
+                            { id: 2, label: 'two' },
+                        ],
+                    })
+                    const second = root.children[1]
+                    root.state.rows = [{ id: 2, label: 'two' }]
+                    await tick()
+                    assert(root.findAll('tbody > tr').length === 1, 'a component rooted on <tr> stays inside <tbody>')
+                    assert(root.children[0] === second, 'the surviving row keeps its instance')
+                }
+
+                // ── 16. static render() carries no internal markers ──────────────────
+                {
+                    const html = Jslade.render('p/pass', { label: 'static' })
+                    assert(!/data-jsd-(id|key)/.test(html), 'render() output is clean HTML')
+                    assert(html.includes('static'), 'render() still expands the child')
+                }
+
+                document.getElementById('summary').textContent = `${passed} passed, ${failed} failed`
+                document.getElementById('summary').className = failed ? 'ko' : 'ok'
+                window.__results = { passed, failed }
+            }
+
+            run().catch((error) => {
+                assert(false, 'crashed: ' + error.message)
+                console.error(error)
+                document.getElementById('summary').textContent = `${passed} passed, ${failed} failed`
+                window.__results = { passed, failed }
+            })
+        </script>
+    </body>
+</html>

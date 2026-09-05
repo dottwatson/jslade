@@ -1,0 +1,228 @@
+/* Jslade Debug Bar — styles.
+   Isolati sotto #jslade-debug-bar; il box-sizing è forzato su tutto il subtree. */
+
+#jslade-debug-bar {
+    --jsd-bg: #1a1a2e;
+    --jsd-bg-header: #16213e;
+    --jsd-bg-panel: #0f0f23;
+    --jsd-border: #2a2a4a;
+    --jsd-text: #e0e0e0;
+    --jsd-muted: #6c757d;
+    --jsd-accent: #0d6efd;
+    --jsd-warn: #ffc107;
+    --jsd-send: #198754;
+    --jsd-danger: #dc3545;
+    --jsd-block: #6f42c1;
+    --jsd-inline: #fd7e14;
+
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 99999;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: var(--jsd-bg);
+    color: var(--jsd-text);
+    border-top: 2px solid var(--jsd-accent);
+    box-sizing: border-box;
+}
+
+#jslade-debug-bar *,
+#jslade-debug-bar *::before,
+#jslade-debug-bar *::after { box-sizing: border-box; }
+
+#jslade-debug-bar.open {
+    height: var(--jslade-debug-height, 45vh);
+    display: flex;
+    flex-direction: column;
+}
+
+#jslade-debug-resize {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    height: 10px;
+    cursor: ns-resize;
+    z-index: 10;
+}
+#jslade-debug-resize:hover { background: rgba(13, 110, 253, .12); }
+
+#jslade-debug-panel { display: none; flex: 1; overflow: hidden; min-height: 0; }
+#jslade-debug-bar.open #jslade-debug-panel { display: flex; flex-direction: column; }
+
+#jslade-debug-handle {
+    cursor: pointer;
+    padding: 6px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--jsd-bg-header);
+    user-select: none;
+    gap: 12px;
+    flex-shrink: 0;
+}
+#jslade-debug-handle:hover { background: #1a2744; }
+
+#jslade-debug-stats { display: flex; gap: 14px; font-size: 10px; color: #aaa; align-items: center; }
+#jslade-debug-stats .stat { white-space: nowrap; }
+#jslade-debug-stats .num { color: var(--jsd-warn); font-weight: 700; }
+#jslade-debug-toggle { font-size: 10px; flex-shrink: 0; }
+
+.jslade-debug-tabs {
+    display: flex;
+    background: var(--jsd-bg-panel);
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+.jslade-debug-tab {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+}
+.jslade-debug-tab.active {
+    color: var(--jsd-accent);
+    border-bottom: 2px solid var(--jsd-accent);
+    background: var(--jsd-bg);
+}
+
+.jslade-debug-tab-panel { flex: 1; overflow-y: auto; padding: 10px; min-height: 0; }
+.jslade-debug-tab-panel[hidden] { display: none !important; }
+
+.jslade-debug-row { padding: 6px 0; border-bottom: 1px solid var(--jsd-border); }
+.jslade-debug-row.is-clickable { cursor: pointer; }
+.jslade-debug-row.is-clickable:hover { background: #1e1e3a; }
+.jslade-debug-row .name { color: var(--jsd-accent); font-weight: 700; }
+.jslade-debug-row .val { color: var(--jsd-muted); }
+.jslade-debug-row .highlight { color: var(--jsd-warn); }
+
+.jslade-debug-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.jslade-debug-badge--send    { background: var(--jsd-send); color: #fff; }
+.jslade-debug-badge--recv    { background: var(--jsd-accent); color: #fff; }
+.jslade-debug-badge--builtin { background: var(--jsd-accent); color: #fff; }
+.jslade-debug-badge--block   { background: var(--jsd-block); color: #fff; }
+.jslade-debug-badge--inline  { background: var(--jsd-inline); color: #fff; }
+.jslade-debug-badge--if      { background: var(--jsd-send); color: #fff; }
+
+.jslade-debug-btn {
+    border: none;
+    border-radius: 3px;
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    line-height: 1.4;
+    padding: 2px 7px;
+}
+.jslade-debug-btn--danger { background: var(--jsd-danger); color: #fff; padding: 2px 6px; line-height: 1; }
+.jslade-debug-btn--danger:hover { background: #bb2d3b; }
+.jslade-debug-btn--info { background: var(--jsd-accent); color: #fff; }
+.jslade-debug-btn--info:hover { background: #0b5ed7; }
+.jslade-debug-btn--info.is-active { background: var(--jsd-warn); color: var(--jsd-bg); }
+.jslade-debug-btn--icon { background: none; color: var(--jsd-muted); width: 18px; padding: 0; }
+.jslade-debug-btn--icon:hover { color: var(--jsd-warn); }
+
+.jslade-debug-tree-node { border-bottom: 1px solid var(--jsd-border); padding: 4px 0; }
+.jslade-debug-instance-header { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 3px; }
+.jslade-debug-instance-header:hover { background: #1e1e3a; }
+.jslade-debug-tree-leading { width: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.jslade-debug-instance-label { flex: 1; min-width: 0; cursor: pointer; }
+.jslade-debug-instance-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: auto; }
+.jslade-debug-tree-toggle-spacer { width: 18px; display: inline-block; flex-shrink: 0; }
+.jslade-debug-info-panel { padding: 6px 6px 10px 20px; }
+.jslade-debug-tree-children { margin-left: 10px; border-left: 1px solid var(--jsd-border); }
+.jslade-debug-toggle {
+    display: inline-block;
+    width: 14px;
+    font-size: 9px;
+    color: var(--jsd-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+
+.jslade-debug-template-header { cursor: pointer; padding: 6px 0; display: flex; align-items: center; }
+.jslade-debug-template-header:hover { color: #fff; }
+.jslade-debug-template-body { margin-left: 20px; margin-top: 4px; }
+
+.jslade-debug-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.jslade-debug-col { min-width: 0; }
+.jslade-debug-col-label { font-size: 10px; color: var(--jsd-muted); margin-bottom: 3px; text-align: center; }
+
+.jslade-debug-json {
+    width: 100%;
+    height: 230px;
+    background: var(--jsd-bg-panel);
+    color: var(--jsd-text);
+    border: 1px solid #333;
+    font: inherit;
+    font-size: 10px;
+    padding: 6px;
+    resize: vertical;
+    display: block;
+}
+.jslade-debug-json[readonly] { color: #888; border-color: var(--jsd-border); }
+
+.jslade-debug-apply {
+    margin-top: 3px;
+    padding: 3px 10px;
+    background: var(--jsd-send);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    width: 100%;
+}
+.jslade-debug-apply:hover { background: #157347; }
+
+.jslade-debug-channel { border-bottom: 1px solid var(--jsd-border); padding: 6px 0; }
+.jslade-debug-channel-header { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.jslade-debug-channel-header:hover { color: #fff; }
+.jslade-debug-channel-body { margin-left: 20px; margin-top: 4px; }
+
+.jslade-debug-wirebus-msg { padding: 4px 0; font-size: 11px; border-bottom: 1px solid #1e1e3a; }
+.jslade-debug-wirebus-row1 { margin-bottom: 2px; }
+.jslade-debug-wirebus-row2 { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.jslade-debug-sender-badge,
+.jslade-debug-recv-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    cursor: pointer;
+    font: inherit;
+}
+button.jslade-debug-sender-badge,
+button.jslade-debug-recv-badge { border: none; }
+.jslade-debug-sender-badge { background: var(--jsd-send); color: #fff; }
+.jslade-debug-recv-badge { background: var(--jsd-accent); color: #fff; }
+.jslade-debug-sender-badge:hover,
+.jslade-debug-recv-badge:hover { opacity: .85; }
+.jslade-debug-sender-badge.is-muted { opacity: .4; cursor: default; }
+.jslade-debug-recv-badge.is-muted { opacity: .3; cursor: default; }
+
+.jslade-debug-is-highlighted { outline: 3px solid var(--jsd-warn) !important; outline-offset: 2px; }
+tr.jslade-debug-is-highlighted { outline: none; box-shadow: 0 0 0 3px var(--jsd-warn); }
+td.jslade-debug-is-highlighted { background: rgba(255, 193, 7, .18) !important; box-shadow: inset 0 0 0 2px var(--jsd-warn); }
+
+.jslade-debug-instance-link { text-decoration: underline; text-decoration-style: dotted; }
+.jslade-debug-instance-link:hover { color: var(--jsd-warn); }
+
+.jslade-debug-empty { color: var(--jsd-muted); font-style: italic; padding: 20px; text-align: center; }
+
+body.jslade-debug-active { scroll-behavior: auto; }

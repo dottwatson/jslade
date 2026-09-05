@@ -1,0 +1,54 @@
+{
+    "name": "jslade",
+    "version": "0.2.0",
+    "description": "Client-side component engine with Blade-like templates",
+    "license": "MIT",
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": ">=18"
+    },
+    "main": "./dist/jslade.js",
+    "browser": "./dist/jslade.js",
+    "module": "./src/jslade/index.js",
+    "exports": {
+        ".": {
+            "import": "./src/jslade/index.js",
+            "require": "./dist/jslade.js",
+            "default": "./dist/jslade.js"
+        },
+        "./min": "./dist/jslade.min.js",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist/jslade.js",
+        "dist/jslade.min.js",
+        "dist/package.json",
+        "src/jslade",
+        "docs",
+        "README.md",
+        "LICENSE.md"
+    ],
+    "scripts": {
+        "build": "node scripts/build-min.mjs",
+        "build:bundle": "node scripts/build-bundle.mjs",
+        "dev": "npx --yes serve . -p 5173",
+        "format": "prettier --write \"src/jslade/**/*.js\" \"scripts/**/*.mjs\" \"debugger/**/*.js\"",
+        "prepublishOnly": "npm run build"
+    },
+    "keywords": [
+        "jslade",
+        "components",
+        "templates",
+        "blade",
+        "dom",
+        "ui",
+        "frontend",
+        "islands"
+    ],
+    "devDependencies": {
+        "esbuild": "^0.25.0",
+        "prettier": "^3.6.0",
+        "terser": "^5.49.0"
+    }
+}

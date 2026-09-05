@@ -1,0 +1,43 @@
+<noembed name="demo/showcase-chip">
+    <script>
+        props({ taskId: 0, label: "", highlight: false })
+
+        function chipCaption() {
+            return this.label + " (this.label=" + this.label + ", state.highlight=" + this.state.highlight + ")"
+        }
+
+        function notifyParent() {
+            if (!this.parent) return
+            this.parent.state.childMessage = "Chip " + this.taskId + " cliccato; this.parent ok"
+            Jslade.send("showcase/ping", { from: "chip", id: this.taskId })
+        }
+
+        mount((send, receive) => {
+            receive("showcase/select", (data) => {
+                this.state.highlight = data.id === this.taskId
+            })
+        })
+    </script>
+
+    <style scoped>
+        .chip {
+            display: inline-block;
+            margin: 0.15rem 0.25rem 0 0;
+            padding: 0.15rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: 1px solid #adb5bd;
+        }
+        .chip.on {
+            background: #f0e68c;
+            border-color: #f0e68c;
+        }
+    </style>
+
+    <template>
+        <span style-scoped class="chip {{ highlight ? 'on' : '' }}" @click(this.notifyParent())>
+            {{ chipCaption() }}
+        </span>
+    </template>
+</noembed>
