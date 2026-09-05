@@ -1,5 +1,4 @@
 import { parseForeachExpression, parseForInExpression, readBalancedParentheses } from '../lib/html-utils.js'
-import { createDirectiveContext } from './directive-context.js'
 import { createAstDirectiveContext } from './ast-emitter.js'
 import { parseExpression, parseForHeader, parseStatementList } from '../ast/parse-expr.js'
 import { EVENT_ATTRIBUTE_PREFIX } from '../lib/constants.js'

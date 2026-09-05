@@ -13,6 +13,7 @@ export const packageRoot = path.resolve(__dirname, '../..')
 export const BROWSER_SUITES = [
     { name: 'DOM patch', path: '/tests/patch.html' },
     { name: 'Integration', path: '/tests/browser/integration.html' },
+    { name: 'Statement runtime', path: '/tests/browser/statement-runtime.html' },
     { name: 'Scoped CSS', path: '/tests/browser/scoped-css.html' },
 ]
 

@@ -320,6 +320,62 @@
                     assert(html.includes('static'), 'render() still expands the child')
                 }
 
+                // ── 17. textarea keeps user input when template value unchanged ───────
+                {
+                    define('p/area', 'props({ t: "a" })', '<textarea id="ta">{{ t }}</textarea>')
+                    const root = Jslade.renderTo(host(), 'p/area', {})
+                    const area = root.find('#ta')
+                    area.value = 'typed'
+                    root.state.t = 'a'
+                    await tick()
+                    assert(area.value === 'typed', 'textarea keeps user input when declared value unchanged')
+                    root.state.t = 'next'
+                    await tick()
+                    assert(area.value === 'next', 'textarea follows template when declared value changes')
+                }
+
+                // ── 18. option selected follows template ─────────────────────────────
+                {
+                    define(
+                        'p/opt',
+                        'props({ pick: "a" })',
+                        '<select id="sel"><option value="a" @if(pick==="a") selected @endif>A</option><option value="b" @if(pick==="b") selected @endif>B</option></select>'
+                    )
+                    const root = Jslade.renderTo(host(), 'p/opt', {})
+                    const sel = root.find('#sel')
+                    assert(sel.options[sel.selectedIndex].value === 'a', 'option starts on template selection')
+                    root.state.pick = 'b'
+                    await tick()
+                    assert(sel.options[sel.selectedIndex].value === 'b', 'option selected follows template')
+                }
+
+                // ── 19. incompatible tags replace the live node ───────────────────────
+                {
+                    define(
+                        'p/tag',
+                        'props({ span: false })',
+                        '@if(span)<span id="n">x</span>@else<div id="n">x</div>@endif'
+                    )
+                    const root = Jslade.renderTo(host(), 'p/tag', { span: false })
+                    const before = root.find('#n')
+                    root.state.span = true
+                    await tick()
+                    const after = root.find('#n')
+                    assert(before !== after, 'incompatible tag swap replaces the node')
+                    assert(after.tagName === 'SPAN', 'new tag name is rendered')
+                }
+
+                // ── 20. text nodes patch in place ─────────────────────────────────────
+                {
+                    define('p/txt', 'props({ msg: "hello" })', '<div id="t">{{ msg }}</div>')
+                    const root = Jslade.renderTo(host(), 'p/txt', {})
+                    const node = root.find('#t').firstChild
+                    root.state.msg = 'hello world'
+                    await tick()
+                    assert(root.find('#t').firstChild === node, 'text node identity survives')
+                    assert(node.textContent === 'hello world', 'text node content updates')
+                }
+
                 document.getElementById('summary').textContent = `${passed} passed, ${failed} failed`
                 document.getElementById('summary').className = failed ? 'ko' : 'ok'
                 window.__results = { passed, failed }

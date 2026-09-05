@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jslade — statement runtime tests</title>
+        <style>
+            body { font-family: ui-monospace, monospace; margin: 1rem; }
+            .ok::before { content: '✓ '; color: #080; }
+            .ko::before { content: '✗ '; color: #c00; }
+            .ko { color: #c00; }
+            #stage { position: absolute; left: -9999px; }
+        </style>
+    </head>
+    <body>
+        <ul id="out"></ul>
+        <div id="stage"></div>
+        <script src="../../dist/jslade.js"></script>
+        <script>
+            const out = document.getElementById('out')
+            let passed = 0
+            let failed = 0
+
+            function assert(condition, message) {
+                const li = document.createElement('li')
+                li.className = condition ? 'ok' : 'ko'
+                li.textContent = message
+                out.appendChild(li)
+                condition ? passed++ : failed++
+            }
+
+            const tick = () => new Promise((r) => setTimeout(r, 0))
+
+            async function run() {
+                Jslade.compile('stmt/runtime', {
+                    script:
+                        'props({ total: 0, err: "", steps: 0 })\n' +
+                        'function runFor() {\n' +
+                        '    var sum = 0\n' +
+                        '    for (var i = 1; i <= 4; i++) {\n' +
+                        '        if (i === 2) continue\n' +
+                        '        sum = sum + i\n' +
+                        '    }\n' +
+                        '    this.total = sum\n' +
+                        '}\n' +
+                        'function runTry() {\n' +
+                        '    try {\n' +
+                        '        throw "boom"\n' +
+                        '    } catch (e) {\n' +
+                        '        this.err = String(e)\n' +
+                        '    } finally {\n' +
+                        '        this.steps = this.steps + 1\n' +
+                        '    }\n' +
+                        '}\n' +
+                        'function runWhile() {\n' +
+                        '    var n = 0\n' +
+                        '    while (n < 5) {\n' +
+                        '        n = n + 1\n' +
+                        '        if (n === 5) break\n' +
+                        '    }\n' +
+                        '    this.steps = n\n' +
+                        '}',
+                    markup:
+                        '<b class="total">{{ total }}</b>' +
+                        '<i class="err">{{ err }}</i>' +
+                        '<span class="steps">{{ steps }}</span>',
+                    scopedStyles: '',
+                    scopeTargets: false,
+                })
+
+                const host = document.createElement('div')
+                document.getElementById('stage').appendChild(host)
+                const inst = Jslade.renderTo(host, 'stmt/runtime', {})
+
+                inst.runFor()
+                inst.runTry()
+                await tick()
+
+                assert(host.querySelector('.total').textContent === '8', 'for/continue sums in mounted method')
+                assert(host.querySelector('.err').textContent === 'boom', 'try/catch runs in mounted method')
+                assert(host.querySelector('.steps').textContent === '1', 'finally runs in mounted method')
+
+                inst.runWhile()
+                await tick()
+                assert(host.querySelector('.steps').textContent === '5', 'while/break updates state from method')
+
+                window.__results = { passed, failed }
+            }
+
+            run().catch((err) => {
+                assert(false, 'crashed: ' + err.message)
+                window.__results = { passed, failed }
+            })
+        </script>
+    </body>
+</html>

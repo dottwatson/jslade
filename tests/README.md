@@ -14,9 +14,10 @@ npm run test:coverage  # unified unit + browser → badges/coverage.json
 
 | Path | Runner | What it covers |
 |------|--------|----------------|
-| `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, public API, min bundle symbols |
-| `tests/patch.html` | Playwright | DOM morphing — focus, keys, children, attributes, render loop guard |
+| `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, custom directives, eval-stmt, legacy compile, public API |
+| `tests/patch.html` | Playwright | DOM morphing — focus, keys, children, attributes, textarea/option/text nodes, render loop guard (46 cases) |
 | `tests/browser/integration.html` | Playwright | `import`/`start`, `render()`, reactive `renderTo`, Wire, `list()` |
+| `tests/browser/statement-runtime.html` | Playwright | `for`/`while`/`try`/`catch` in live component methods |
 | `tests/browser/scoped-css.html` | Playwright | Scoped CSS at runtime — injection, `style-scoped`, silent failure mode |
 | `tests/browser/bundle-min.html` | Playwright | Production `dist/jslade.min.js` smoke test |
 
