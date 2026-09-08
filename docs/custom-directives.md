@@ -390,7 +390,7 @@ You do not register these — they ship with the engine:
 | `@forIn`, `@endforIn` | Object key loop |
 | `@component` | Child component |
 | `@js`, `@endjs` | Run JS during render |
-| `@click`, `@input`, `@change`, `@submit`, `@keydown`, `@focus`, `@blur` | DOM events |
+| `@click`, `@dblclick`, … `@focusout` | DOM events (see [components.md](./components.md#event-directives)) |
 
 Custom directives follow the same compile-time registration model but use names you choose.
 Avoid colliding with built-in names.

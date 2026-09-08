@@ -224,7 +224,7 @@ mount(function () {
 | `@if` / `@else` | Conditional blocks |
 | `@foreach` | Loop over `items` |
 | `$loop.last` | Loop metadata |
-| `@click` / `@change` / `@input` | DOM events (CSP-safe) |
+| `@click` / `@change` / `@input` / … | DOM events — CSP-safe (see [docs/components.md](./docs/components.md#event-directives)) |
 | `{{ }}` | Output escaped text |
 
 Child components: `@component('other/name', { key: id, …props })`.  
@@ -370,7 +370,7 @@ Jslade.directive('panel', { block: true }, (ctx) => {
 `ctx.wrap(openHtml, closeHtml)` takes two HTML strings — not a tag name or `children`.
 Block helpers: `ctx.wrap`, `ctx.when`, `ctx.loop`.  
 Built-in: `@if`, `@elseif`, `@else`, `@foreach`, `@for`, `@component`, `@js`, and
-`@click`, `@input`, `@change`, `@submit`, `@keydown`, `@focus`, `@blur`.
+[49 DOM event directives](./docs/components.md#event-directives) (`@click`, `@input`, `@dragover`, …).
 
 ---
 

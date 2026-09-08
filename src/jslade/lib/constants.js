@@ -12,6 +12,66 @@ export const LIFECYCLE_HOOKS = ['mount', 'updated', 'unmount']
 /** Event directives mark their element with `<prefix><event>="<handler id>"`; no inline JS, so a strict CSP passes. */
 export const EVENT_ATTRIBUTE_PREFIX = 'data-jsd-on-'
 
+/** Built-in `@event` directives — each maps to a native DOM event type. */
+export const EVENT_DIRECTIVES = [
+    // Mouse
+    'click',
+    'dblclick',
+    'mousedown',
+    'mouseup',
+    'mousemove',
+    'mouseenter',
+    'mouseleave',
+    'mouseover',
+    'mouseout',
+    'contextmenu',
+    'auxclick',
+    // Touch
+    'touchstart',
+    'touchmove',
+    'touchend',
+    'touchcancel',
+    // Pointer
+    'pointerdown',
+    'pointerup',
+    'pointermove',
+    'pointerenter',
+    'pointerleave',
+    'pointerover',
+    'pointerout',
+    'pointercancel',
+    'gotpointercapture',
+    'lostpointercapture',
+    // Drag
+    'dragstart',
+    'drag',
+    'dragend',
+    // Drop
+    'dragenter',
+    'dragover',
+    'dragleave',
+    'drop',
+    // Keyboard
+    'keydown',
+    'keyup',
+    // Form / focus
+    'input',
+    'change',
+    'submit',
+    'reset',
+    'invalid',
+    'select',
+    'search',
+    'compositionstart',
+    'compositionupdate',
+    'compositionend',
+    'cancel',
+    'focus',
+    'blur',
+    'focusin',
+    'focusout',
+]
+
 /** Instance members win over state in method context, so a prop with one of these names is unreachable via `this`. */
 export const INSTANCE_RESERVED_NAMES = [
     'id',

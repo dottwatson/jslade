@@ -558,8 +558,19 @@ Useful during development; remove from production templates.
 
 ## Event directives
 
-Built-in event directives: **`@click`**, **`@input`**, **`@change`**, **`@submit`**,
-**`@keydown`**, **`@focus`**, **`@blur`**.
+Built-in event directives attach native DOM listeners at bind time. Each `@name(handler)` compiles
+to a **`data-jsd-on-name`** attribute — no inline `onclick`, which keeps Content Security Policy
+configurations workable without `'unsafe-inline'`.
+
+| Family | Directives |
+|---|---|
+| Mouse | `@click`, `@dblclick`, `@mousedown`, `@mouseup`, `@mousemove`, `@mouseenter`, `@mouseleave`, `@mouseover`, `@mouseout`, `@contextmenu`, `@auxclick` |
+| Touch | `@touchstart`, `@touchmove`, `@touchend`, `@touchcancel` |
+| Pointer | `@pointerdown`, `@pointerup`, `@pointermove`, `@pointerenter`, `@pointerleave`, `@pointerover`, `@pointerout`, `@pointercancel`, `@gotpointercapture`, `@lostpointercapture` |
+| Drag | `@dragstart`, `@drag`, `@dragend` |
+| Drop | `@dragenter`, `@dragover`, `@dragleave`, `@drop` |
+| Keyboard | `@keydown`, `@keyup` |
+| Form / focus | `@input`, `@change`, `@submit`, `@reset`, `@invalid`, `@select`, `@search`, `@compositionstart`, `@compositionupdate`, `@compositionend`, `@cancel`, `@focus`, `@blur`, `@focusin`, `@focusout` |
 
 ```html
 <button type="button" @click(this.addItem())">Add</button>
@@ -572,10 +583,6 @@ Built-in event directives: **`@click`**, **`@input`**, **`@change`**, **`@submit
     …
 </form>
 ```
-
-They compile to **`data-jsd-on-*`** attributes. The engine attaches native listeners when
-the instance binds — no inline `onclick`, which keeps Content Security Policy configurations
- workable without `'unsafe-inline'`.
 
 Always call **`this.methodName()`** in handlers, not bare `methodName()`.
 

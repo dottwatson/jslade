@@ -374,6 +374,64 @@ ${def.markup || ''}
     var MAX_CONSECUTIVE_RENDERS = 50
     var LIFECYCLE_HOOKS = ['mount', 'updated', 'unmount']
     var EVENT_ATTRIBUTE_PREFIX = 'data-jsd-on-'
+    var EVENT_DIRECTIVES = [
+        // Mouse
+        'click',
+        'dblclick',
+        'mousedown',
+        'mouseup',
+        'mousemove',
+        'mouseenter',
+        'mouseleave',
+        'mouseover',
+        'mouseout',
+        'contextmenu',
+        'auxclick',
+        // Touch
+        'touchstart',
+        'touchmove',
+        'touchend',
+        'touchcancel',
+        // Pointer
+        'pointerdown',
+        'pointerup',
+        'pointermove',
+        'pointerenter',
+        'pointerleave',
+        'pointerover',
+        'pointerout',
+        'pointercancel',
+        'gotpointercapture',
+        'lostpointercapture',
+        // Drag
+        'dragstart',
+        'drag',
+        'dragend',
+        // Drop
+        'dragenter',
+        'dragover',
+        'dragleave',
+        'drop',
+        // Keyboard
+        'keydown',
+        'keyup',
+        // Form / focus
+        'input',
+        'change',
+        'submit',
+        'reset',
+        'invalid',
+        'select',
+        'search',
+        'compositionstart',
+        'compositionupdate',
+        'compositionend',
+        'cancel',
+        'focus',
+        'blur',
+        'focusin',
+        'focusout',
+    ]
     var INSTANCE_RESERVED_NAMES = [
         'id',
         'name',
@@ -3339,7 +3397,6 @@ ${def.markup || ''}
             handlersByName.get('js').astHandlerFn = function (ctx) {
                 ctx.raw()
             }
-            const EVENT_DIRECTIVES = ['click', 'input', 'change', 'submit', 'keydown', 'focus', 'blur']
             for (const eventName of EVENT_DIRECTIVES) {
                 registerDirective(eventName, function (ctx) {
                     const handler = escapeAttributeValue(ctx.expr)

@@ -2,7 +2,7 @@ import { parseForeachExpression, parseForInExpression, readBalancedParentheses }
 import { createDirectiveContext } from './directive-context.js'
 import { createAstDirectiveContext } from './ast-emitter.js'
 import { parseExpression, parseForHeader, parseStatementList } from '../ast/parse-expr.js'
-import { EVENT_ATTRIBUTE_PREFIX } from '../lib/constants.js'
+import { EVENT_ATTRIBUTE_PREFIX, EVENT_DIRECTIVES } from '../lib/constants.js'
 
 /** Handler source lives inside a double-quoted HTML attribute. */
 function escapeAttributeValue(expression) {
@@ -292,7 +292,6 @@ export function createDirectiveRegistry() {
             ctx.raw()
         }
 
-        const EVENT_DIRECTIVES = ['click', 'input', 'change', 'submit', 'keydown', 'focus', 'blur']
         for (const eventName of EVENT_DIRECTIVES) {
             registerDirective(eventName, function (ctx) {
                 const handler = escapeAttributeValue(ctx.expr)
