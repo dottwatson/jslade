@@ -92,4 +92,5 @@ export const INSTANCE_RESERVED_NAMES = [
     'renderTo',
     'wire',
     'localWire',
+    'loadResources',
 ]

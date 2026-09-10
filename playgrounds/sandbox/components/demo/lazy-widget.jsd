@@ -1,0 +1,63 @@
+<noembed name="demo/lazy-widget">
+<script>
+props({
+    ready: false,
+    error: '',
+    label: 'Painted by DemoWidget after loadResources()',
+    painted: '',
+})
+
+mount(function () {
+    if (this._assetsReady) return
+    this._assetsReady = true
+    var self = this
+    this.loadResources([
+        { type: 'style', src: './assets/demo-widget.css' },
+        { type: 'script', src: './assets/demo-widget.js', global: 'DemoWidget' },
+    ])
+        .then(function (result) {
+            if (self._unmounted) return
+            result.global.DemoWidget.paint(self.find('[data-widget]'), self.label)
+            self.painted = self.label
+            self.ready = true
+        })
+        .catch(function (err) {
+            if (self._unmounted) return
+            self.error = String(err.message || err)
+        })
+})
+
+unmount(function () {
+    // Destroys the instance only. The script/style stay in <head>.
+})
+</script>
+
+<style scoped>
+.wrap { display: grid; gap: 0.5rem; }
+.hint { margin: 0; color: #5c6672; font-size: 0.9rem; }
+.err { margin: 0; color: #b42318; }
+</style>
+
+<template>
+<div style-scoped class="wrap">
+    @if(error)
+        <p class="err">{{ error }}</p>
+    @else
+        <p class="hint">
+            @if(ready)
+                Assets loaded — CSS from the injected stylesheet, JS from window.DemoWidget.
+            @else
+                Loading ./assets/demo-widget.js + .css …
+            @endif
+        </p>
+        <div data-widget class="demo-widget-box">
+            @if(painted)
+                {{ painted }}
+            @else
+                Waiting for paint…
+            @endif
+        </div>
+    @endif
+</div>
+</template>
+</noembed>

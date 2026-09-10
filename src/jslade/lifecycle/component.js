@@ -158,6 +158,10 @@ export class Component {
         return this.container.querySelector(selector)
     }
 
+    loadResources(entries) {
+        return this._api.loadResources(entries)
+    }
+
     findAll(selector) {
         return this.container.querySelectorAll(selector)
     }

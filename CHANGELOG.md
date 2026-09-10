@@ -14,6 +14,7 @@ All notable changes to the `jslade` npm package are documented here.
 ### Added
 
 - `Jslade.wire(name).get(fallback?)` — last `send`, or `fallback` / `undefined` if the channel is empty
+- **`Jslade.loadResources(entries)` / `this.loadResources(entries)`** — lazy JS/CSS loader (deduped by type + URL; `unmount` does not remove assets)
 
 ## 0.2.0
 

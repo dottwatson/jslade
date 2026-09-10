@@ -371,3 +371,7 @@ Without `style-scoped`, rules compile but nothing in the DOM matches them.
 **`this.wire('name')`** (page-wide) or **`this.localWire('name')`** (this instance; children
 use **`this.parent.localWire`**). `send` is the flow and the last value; `get(fallback?)`
 reads it; `receive` is never called on an empty channel; `clear()` empties without notifying.
+
+**A chart or map library is `undefined`.** Do not put a layout-only `<script>` assumption in
+the component. Call **`this.loadResources([…])`** from `mount()` and construct the widget
+inside `.then()` — see [External libraries](./components.md#external-libraries-loadresources).

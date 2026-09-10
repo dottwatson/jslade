@@ -1,0 +1,8 @@
+.demo-widget-box {
+    padding: 0.85rem 1rem;
+    border: 2px dashed #2563eb;
+    border-radius: 0.5rem;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-weight: 600;
+}

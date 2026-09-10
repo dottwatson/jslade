@@ -34,6 +34,7 @@ DOM** — no virtual DOM, no build step required for your components.
   `data-jsd-on-*` attributes (no inline `onclick`).
 - **Scoped CSS** — `<style scoped>` + `style-scoped` on markup roots, no CSS-in-JS.
 - **Tree of instances** — `@component` children, parent/child scope, `wire` / `localWire` between components.
+- **Lazy assets** — `this.loadResources()` pulls JS/CSS when an island mounts; the same URL is loaded once.
 
 ---
 
@@ -378,7 +379,7 @@ Built-in: `@if`, `@elseif`, `@else`, `@foreach`, `@for`, `@component`, `@js`, an
 | Guide | Contents |
 |---|---|
 | [docs/getting-started.md](./docs/getting-started.md) | Quick start, first component |
-| [docs/components.md](./docs/components.md) | Lifecycle, state, parent/child tree, `wire` / `localWire` |
+| [docs/components.md](./docs/components.md) | Lifecycle, state, parent/child tree, `wire` / `localWire`, `loadResources` |
 | [docs/registering-components.md](./docs/registering-components.md) | Loading from backend, fetch, scanDOM |
 | [docs/build.md](./docs/build.md) | Building the package (contributors) |
 | [docs/debug-readme.md](./docs/debug-readme.md) | Dev debug bar |

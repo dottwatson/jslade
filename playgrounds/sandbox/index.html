@@ -73,6 +73,14 @@
     </div>
 
     <div class="panel">
+        <h2>loadResources</h2>
+        <p class="lead" style="margin:0 0 .85rem">
+            Island-owned JS/CSS — files load on mount, not in the page head.
+        </p>
+        <jslade name="demo/lazy-widget"></jslade>
+    </div>
+
+    <div class="panel">
         <h2>Scope log</h2>
         <pre id="scope-log"></pre>
     </div>
@@ -91,6 +99,7 @@
         const componentPaths = [
             'demo/showcase.jsd',
             'demo/showcase-chip.jsd',
+            'demo/lazy-widget.jsd',
         ]
 
         function log(msg) {

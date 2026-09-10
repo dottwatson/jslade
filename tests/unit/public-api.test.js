@@ -25,6 +25,7 @@ describe('public API exports', () => {
         assert.equal(typeof Jslade.compile, 'function')
         assert.equal(typeof Jslade.directive, 'function')
         assert.equal(typeof Jslade.wire, 'function')
+        assert.equal(typeof Jslade.loadResources, 'function')
     })
 
     it('exports compile helpers', () => {
@@ -47,6 +48,7 @@ describe('dist bundle guard symbols', () => {
         'compiledComponents',
         'directive',
         'wire',
+        'loadResources',
     ]
 
     it('jslade.min.js contains required public symbols', () => {

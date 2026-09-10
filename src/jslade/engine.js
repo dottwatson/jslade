@@ -1,7 +1,7 @@
 /**
  * Jslade — public API and module re-exports.
  *
- *   lib/          dev-log, html-utils, js-scan, hooks, wire, reactive, instance-registry
+ *   lib/          dev-log, html-utils, js-scan, hooks, wire, load-resources, reactive, instance-registry
  *   markup/       emitter, directive-context, directives, compiler
  *   compile/      script parser, template compile
  *   lifecycle/    instances, re-render, renderTo
@@ -21,6 +21,7 @@ import { runWithCurrentInstance } from './lib/current-instance.js'
 import { snapshotLiveInstancesByTemplate, formatRuntimeError } from './lib/instance-registry.js'
 import { escapeHtml, parseDirectiveToken, parseForeachExpression, readBalancedParentheses } from './lib/html-utils.js'
 import { COMPONENT_DEF_TAG } from './lib/constants.js'
+import { loadResources as loadResourceEntries } from './lib/load-resources.js'
 
 const directiveRegistry = createDirectiveRegistry()
 
@@ -292,6 +293,10 @@ Object.assign(Jslade, {
 
     wire(channel) {
         return openPublicWire(channel, null)
+    },
+
+    loadResources(entries) {
+        return loadResourceEntries(entries)
     },
 
     event(nativeEvent, element, callback) {

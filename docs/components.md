@@ -395,6 +395,10 @@ use({ formatPrice: window.formatPrice, api: window.myApi })
 `use()` bindings are available in markup and `@js` blocks. They are not automatically
 properties on `this` unless you also assign them in `mount()`.
 
+`use()` does **not** download anything. The helper must already exist on the page (layout
+`<script>`, earlier component, or `window`). To lazy-load a library when the component
+mounts, use [`loadResources`](#external-libraries-loadresources) instead.
+
 ### Methods — always `function name() { … }`
 
 ```js
@@ -730,6 +734,133 @@ Jslade.start({ dev: true, showChannels: true })
 
 ---
 
+## External libraries (`loadResources`)
+
+Components can pull in their own JS/CSS the first time they mount, without putting those
+tags in the page `<head>` up front. That matches Jslade’s island model: the page boots
+small; a map or chart island pays for Leaflet or Chart.js only when it appears.
+
+```js
+Jslade.loadResources(entries)     // same cache, from page script
+this.loadResources(entries)       // instance — delegates to Jslade.loadResources
+```
+
+Both return a **Promise**. Call them from **`mount()`**. Do not name this API `import` —
+`Jslade.import()` already registers component source strings.
+
+### vs `use()` vs a layout `<script>`
+
+| | When to use | What it does |
+|---|---|---|
+| Layout `<script>` / `<link>` | Every page needs the lib | Browser loads it before or with the page |
+| **`use({ hl: window.hl })`** | Lib is **already** on `window`; the **template** must call it | Binds a name into markup / `@js`. No network. |
+| **`this.loadResources([…])`** | This component owns the dependency | Injects `<script>` / `<link>` or `import()`, deduped for the page |
+
+`loadResources` does **not** feed `use()`. After a UMD script runs, `Chart` is on `window`;
+Jslade’s script interpreter already resolves unknown names on `globalThis`, so
+`new Chart(…)` works **inside the `.then()`**. Markup `{{ Chart }}` on the first paint is
+still empty — flip a `state.ready` flag after load, or bind with `use()` only if the lib
+was on the page before compile.
+
+The script subset has **no `async` / `await`**. Use `.then()` / `.catch()`.
+
+### Entry shape
+
+`entries` is an array, or a single object (wrapped as a one-item array).
+
+| Field | Required | Meaning |
+|---|---|---|
+| `type` | yes | `'style'` · `'script'` (classic UMD) · `'module'` (native `import()`) |
+| `src` | yes | Absolute or root-relative URL. Same string (after resolve) is the cache key. |
+| `global` | no | After a **script** / **module** load, `window[global]` must exist or the Promise rejects. Copied to `result.global[name]`. Does **not** rename the library. |
+| `test` | no | `() => boolean`. If it returns `true`, skip the network (already available). |
+| `attrs` | no | Extra attributes on the created element (`media`, `integrity`, `crossOrigin`, `nonce`, `defer`, …). Applied after defaults, so they win. |
+| `timeout` | no | Reject after N milliseconds. Omitted = wait until `load` / `error`. A hung URL with no timeout occupies the cache until the page is gone. |
+
+```js
+this.loadResources([
+    { type: 'style', src: '/assets/leaflet.css', attrs: { media: 'all' } },
+    { type: 'script', src: '/assets/leaflet.js', global: 'L' },
+])
+
+this.loadResources({ type: 'module', src: '/assets/widgets/map.js' })
+```
+
+### How a load runs
+
+1. Entries are processed **in array order** (put CSS before JS when the script needs those rules). Sequential means the next URL starts only after the previous Promise settles — `async` on a script tag does **not** mean “download in parallel”. Two separate `loadResources()` calls can overlap.
+2. Cache key is `type + src` (src resolved against `location` when possible). Two islands asking for the same file share one Promise and one DOM node.
+3. `test()` → skip insert. Then, if you passed `global`, still check `window[global]`.
+4. Else if a matching `script[src]` or `link[rel=stylesheet]` is already in the document (attribute or resolved URL) → do not insert a second tag; wait for `load` or resolve if the sheet / script is already there.
+5. Else inject into `document.head`: classic `<script src async>` or `<link rel="stylesheet">`. `type: 'module'` uses native `import()` — no `<script type="module">`.
+6. `global` is checked on **every** success path (`test`, DOM hit, network). Missing → reject with `[Jslade.loadResources] window.Name is not available after loading …`.
+7. Failure or timeout **drops that cache key** so a later call can retry. A tag this call inserted is removed on `error`. Tags that were already on the page are left alone.
+8. **`unmount()` does not remove** scripts or styles. The last chart island going away must not break another instance or leftover page code.
+
+`global` is only a **check and a copy**. Leaflet still assigns `window.L`. You cannot park Chart 2.3 on `window.charts` and 2.7 on another name — both UMDs overwrite `window.Chart`. Two ESM modules can stay isolated via `result.entries[i].module` if they do not touch `window`.
+
+### Promise result
+
+```js
+{
+    entries: [
+        { type: 'style', src: '/assets/chart.css' },
+        { type: 'script', src: '/assets/chart.umd.min.js', global: 'Chart' },
+        { type: 'module', src: '/assets/widgets/map.js', module: /* namespace */ },
+    ],
+    global: { Chart: window.Chart },
+}
+```
+
+Use `result.global.Chart`, `window.Chart`, or a bare `Chart` in the `.then()` — same object
+when the UMD defined it. Omit `global` if you only care that the file arrived.
+
+### Mount / unmount pattern
+
+```js
+mount(function () {
+    if (this._assetsReady) return
+    this._assetsReady = true
+    var self = this
+    this.loadResources([
+        { type: 'style', src: '/assets/chart.css' },
+        { type: 'script', src: '/assets/chart.umd.min.js', global: 'Chart' },
+    ]).then(function (result) {
+        if (self._unmounted) return
+        self._chart = new result.global.Chart(self.find('canvas'), { /* … */ })
+        self.state.ready = true
+    }).catch(function (err) {
+        if (self._unmounted) return
+        self.state.error = String(err.message || err)
+    })
+})
+
+unmount(function () {
+    if (this._chart) {
+        this._chart.destroy()
+        this._chart = null
+    }
+    // does not unload script/style from the page
+})
+```
+
+`mount()` already runs once per instance; `_assetsReady` is a belt-and-suspenders guard.
+Always bail out in `.then()` / `.catch()` if `_unmounted` is set — the CDN can finish after
+teardown.
+
+With `Jslade.start({ dev: true })`, the console logs cache hits versus network inserts.
+
+### Constraints
+
+- No dependency graph, versions, or automatic unload.
+- No `<resources>` block in `.jsd` markup — you call `loadResources` yourself.
+- First inserter wins for `integrity` / `nonce` / URL flavour. Pass the **same** `src` string the page already used if a tag might exist.
+- **CSP:** classic scripts need `script-src` for that origin; `import()` needs the module URL allowlisted (and CORS + JS MIME if cross-origin). Nonce-based CSP: pass `attrs: { nonce: '…' }`.
+- A request that never fires `load` or `error` blocks that cache key unless you set `timeout`.
+- `render()` (HTML-only) never runs `mount()` — lazy assets are for live instances.
+
+---
+
 ## JavaScript subset
 
 Method bodies, lifecycle hooks, `@js` blocks, and event handler expressions are parsed into
@@ -778,7 +909,8 @@ purposes, or keep shared logic in plain modules.
 ### Where to put heavy logic
 
 Network calls, `async`/`await`, and large algorithms belong in plain JavaScript modules on
-the page. Expose helpers through **`use({ … })`**, call them from **`mount()`**, or store
+the page. Expose helpers that are **already loaded** through **`use({ … })`**, lazy-load
+component-owned JS/CSS with **`this.loadResources()`** from **`mount()`**, or store
 results on **`state`** for the template to read.
 
 ---
@@ -825,12 +957,14 @@ After **`renderTo()`** or **`start()`**, the root instance is available on the m
 | `instance.unmount()` | Destroy the instance and release Wire subscriptions |
 | `instance.wire(name)` | Public channel handle (`send` / `receive` / `get` / `clear`) |
 | `instance.localWire(name)` | Per-instance channel handle; children use `this.parent.localWire(name)` |
+| `instance.loadResources(entries)` | Lazy-load JS/CSS; same cache as `Jslade.loadResources` |
 | `instance.remove()` | Remove the container from the DOM (does not run lifecycle hooks) |
 | `instance.renderTo(target)` | Append detached container to a DOM node |
 | `instance.parent` / `instance.children` | Parent/child tree from `@component` |
 
 **`Jslade.wire(name)`** is the public-square handle from outside a component — same
 `send` / `receive` / `get` / `clear` as `instance.wire(name)`. There is no `Jslade.localWire`.
+**`Jslade.loadResources(entries)`** is the same loader as `instance.loadResources`.
 
 **`Jslade.event(nativeEvent, element, callback)`** walks up from `element` to find the nearest
 component and invokes `callback` with the instance as `this`. Used internally for event
@@ -851,6 +985,7 @@ delegation; available for custom integrations.
 | `receive` fires many times | Subscribe in `mount()`, not `updated()` — each call adds a listener |
 | Empty `get()` is `undefined` | The name was never `send` or was `clear()`; pass a fallback: `get('light')` |
 | Method not found in template | Declare with `function name() {}`, not `const name = () => {}` |
+| Chart / map lib is `undefined` | Call `new Chart()` inside `loadResources(…).then()`, not synchronously in `mount()` |
 
 During development, run **`Jslade.start({ dev: true })`** and inspect
 **`Jslade.instances()`** when behaviour does not match expectations.
