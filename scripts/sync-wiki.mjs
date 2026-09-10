@@ -26,6 +26,12 @@ const PAGES = [
         blurb: 'Lifecycle, state, parent/child tree',
     },
     {
+        src: 'load-resources.md',
+        wiki: 'Load-resources.md',
+        link: 'Load-resources',
+        blurb: 'Lazy JS/CSS (`loadResources`) vs `use()`',
+    },
+    {
         src: 'registering-components.md',
         wiki: 'Registering-components.md',
         link: 'Registering-components',

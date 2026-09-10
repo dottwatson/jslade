@@ -14,7 +14,7 @@ npm run test:coverage  # unified unit + browser → badges/coverage.json
 
 | Path | Runner | What it covers |
 |------|--------|----------------|
-| `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, custom directives, eval-stmt, legacy compile, public API |
+| `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, `loadResources`, custom directives, eval-stmt, legacy compile, public API |
 | `tests/patch.html` | Playwright | DOM morphing — focus, keys, children, attributes, textarea/option/text nodes, render loop guard (46 cases) |
 | `tests/browser/integration.html` | Playwright | `import`/`start`, `render()`, reactive `renderTo`, Wire, `list()` |
 | `tests/browser/statement-runtime.html` | Playwright | `for`/`while`/`try`/`catch` in live component methods |

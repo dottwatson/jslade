@@ -46,7 +46,7 @@ DOM** — no virtual DOM, no build step required for your components.
   instance; fine-grained reactivity is not the model.
 - **Team already on a SPA stack** — adding a second templating language rarely pays off.
 - **Heavy async UI** — the script subset has no `async`/`await`; put that logic in plain JS
-  modules and call it from components.
+  modules and call it from `mount()`, or lazy-load a UMD with `this.loadResources()`.
 
 For deep dives see [docs/getting-started.md](./docs/getting-started.md).
 
@@ -374,12 +374,34 @@ Built-in: `@if`, `@elseif`, `@else`, `@foreach`, `@for`, `@component`, `@js`, an
 
 ---
 
+## Lazy JS/CSS
+
+An island can fetch its own assets on `mount()` — the page does not pay for Chart or
+Leaflet until that component appears. Same URL → one download for the whole page.
+`unmount()` does not remove the tags.
+
+```js
+this.loadResources([
+    { type: 'style', src: '/assets/leaflet.css' },
+    { type: 'script', src: '/assets/leaflet.js', global: 'L' },
+]).then(function (result) {
+    new result.global.L.map(...)
+})
+```
+
+`global: 'L'` means “after load, `window.L` must exist” — it does not rename the library.
+This is not `Jslade.import()` (that registers component source). Guide:
+[docs/load-resources.md](./docs/load-resources.md).
+
+---
+
 ## Documentation
 
 | Guide | Contents |
 |---|---|
 | [docs/getting-started.md](./docs/getting-started.md) | Quick start, first component |
-| [docs/components.md](./docs/components.md) | Lifecycle, state, parent/child tree, `wire` / `localWire`, `loadResources` |
+| [docs/components.md](./docs/components.md) | Lifecycle, state, parent/child tree, `wire` / `localWire` |
+| [docs/load-resources.md](./docs/load-resources.md) | Lazy JS/CSS (`loadResources`) vs `use()` |
 | [docs/registering-components.md](./docs/registering-components.md) | Loading from backend, fetch, scanDOM |
 | [docs/build.md](./docs/build.md) | Building the package (contributors) |
 | [docs/debug-readme.md](./docs/debug-readme.md) | Dev debug bar |

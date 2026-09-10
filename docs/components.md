@@ -736,6 +736,9 @@ Jslade.start({ dev: true, showChannels: true })
 
 ## External libraries (`loadResources`)
 
+Standalone guide (for-dummies, full `.jsd`, FAQ):
+**[docs/load-resources.md](./load-resources.md)**.
+
 Components can pull in their own JS/CSS the first time they mount, without putting those
 tags in the page `<head>` up front. That matches Jslade’s island model: the page boots
 small; a map or chart island pays for Leaflet or Chart.js only when it appears.
@@ -798,6 +801,15 @@ this.loadResources({ type: 'module', src: '/assets/widgets/map.js' })
 8. **`unmount()` does not remove** scripts or styles. The last chart island going away must not break another instance or leftover page code.
 
 `global` is only a **check and a copy**. Leaflet still assigns `window.L`. You cannot park Chart 2.3 on `window.charts` and 2.7 on another name — both UMDs overwrite `window.Chart`. Two ESM modules can stay isolated via `result.entries[i].module` if they do not touch `window`.
+
+`result.global` is a plain object on the Promise result (`{ L: window.L }`), not `window.global`.
+Omit `global` if you only care that the file arrived — a UMD still puts itself on `window`
+by itself. Skip the network when the lib is already there:
+
+```js
+{ type: 'script', src: '/vendor/highlight.js', global: 'hljs',
+  test: function () { return typeof hljs === 'function' } }
+```
 
 ### Promise result
 

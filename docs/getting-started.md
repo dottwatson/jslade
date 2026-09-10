@@ -343,6 +343,33 @@ This serves the package root at `http://localhost:5173`. Useful entry points:
 Edit a `.jsd` file under `playgrounds/sandbox/components/` and reload — no frontend build
 step is required for component changes (rebuild with `npm run build` only after engine edits).
 
+The sandbox includes **`demo/lazy-widget`**: a component that calls `this.loadResources()`
+on mount to pull a local JS/CSS pair. That is the pattern for Chart, Leaflet, or any UMD
+you do not want in the page `<head>`.
+
+---
+
+## Lazy JS/CSS (`loadResources`)
+
+When only one island needs a heavy library, do not put it in the layout. From `mount()`:
+
+```js
+this.loadResources([
+    { type: 'style', src: '/assets/chart.css' },
+    { type: 'script', src: '/assets/chart.umd.min.js', global: 'Chart' },
+]).then(function (result) {
+    new result.global.Chart(...)
+})
+```
+
+- **`Jslade.import()`** registers component source. **`loadResources`** fetches network
+  assets. Different APIs.
+- **`use({ Chart: window.Chart })`** only exposes a lib that is **already** on the page.
+- No `async` / `await` in the component `<script>` — use `.then()`.
+- `unmount()` does not remove the tags from `<head>`.
+
+Full reference: [load-resources.md](./load-resources.md).
+
 ---
 
 ## Common first-time mistakes

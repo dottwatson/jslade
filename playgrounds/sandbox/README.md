@@ -24,6 +24,8 @@ Open [http://localhost:5173/playgrounds/sandbox/](http://localhost:5173/playgrou
 | `components/demo/lazy-widget.jsd` | `loadResources` — lazy JS/CSS island |
 | `assets/demo-widget.js` / `.css` | UMD + stylesheet fetched by the lazy widget |
 
+Guide: [docs/load-resources.md](../../docs/load-resources.md).
+
 ## Notes
 
 - `npm run dev` serves the package root; component paths are relative to this folder.
