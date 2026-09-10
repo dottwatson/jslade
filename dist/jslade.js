@@ -449,6 +449,8 @@ ${def.markup || ''}
         'remove',
         'unmount',
         'renderTo',
+        'wire',
+        'localWire',
     ]
 
     // src/jslade/ast/tokenize.js
@@ -2336,8 +2338,6 @@ ${def.markup || ''}
         if (name === 'globalThis' && scope.globalThis) return scope.globalThis
         if (name === '_' && scope.buffer) return scope.buffer
         if (name === 'event' && scope.event) return scope.event
-        if (name === 'send' && scope.send) return scope.send
-        if (name === 'receive' && scope.receive) return scope.receive
         if (typeof globalThis !== 'undefined' && name in globalThis) return globalThis[name]
         return void 0
     }
@@ -2410,8 +2410,6 @@ ${def.markup || ''}
             callMethod: scope.callMethod,
             use: scope.use,
             Jslade: scope.Jslade,
-            send: scope.send,
-            receive: scope.receive,
             event: scope.event,
             escapeHtml: scope.escapeHtml,
             emitChild: scope.emitChild,
@@ -2836,6 +2834,21 @@ ${def.markup || ''}
         }
     }
 
+    // src/jslade/lib/current-instance.js
+    var currentInstance = null
+    function getCurrentInstance() {
+        return currentInstance
+    }
+    function runWithCurrentInstance(instance, fn) {
+        const previous = currentInstance
+        currentInstance = instance
+        try {
+            return fn()
+        } finally {
+            currentInstance = previous
+        }
+    }
+
     // src/jslade/compile/template.js
     var IDENTIFIER_PATTERN2 = /^[A-Za-z_$][\w$]*$/
     function compileTemplateDef(templateName, def, directiveRegistry2, api) {
@@ -2962,6 +2975,12 @@ ${def.markup || ''}
                 callMethod: (name, methodArgs) => callMethod(name, methodArgs, methodCtx, mergedProps),
             }
             bindParams(fn.params, args, scope, locals)
+            const raw = methodCtx && methodCtx._raw
+            if (raw) {
+                return runWithCurrentInstance(raw, function () {
+                    return runMethodAst(fn.body, scope)
+                })
+            }
             return runMethodAst(fn.body, scope)
         }
         const compiledMeta = {
@@ -2997,7 +3016,7 @@ ${def.markup || ''}
             const methodCtx = createInstanceMethodContext(instance)
             return callMethod(methodName, args, methodCtx, instance.state)
         }
-        compiledMeta.runHook = function runHook(hookName, instance, send, receive) {
+        compiledMeta.runHook = function runHook(hookName, instance) {
             const body = templateScript.hooksAst[hookName]
             if (!body) return
             const methodCtx = createInstanceMethodContext(instance)
@@ -3010,8 +3029,6 @@ ${def.markup || ''}
                 methodsAst: templateScript.methodsAst,
                 use: resolveUseBindings(),
                 Jslade: api,
-                send,
-                receive,
                 callMethod: (name, args) => callMethod(name, args, methodCtx, instance.state),
             })
         }
@@ -3031,7 +3048,9 @@ ${def.markup || ''}
                 event: nativeEvent,
                 callMethod: (name, args) => callMethod(name, args, methodCtx, instance.state),
             }
-            runHookAst(handler.body, scope)
+            runWithCurrentInstance(instance, function () {
+                runHookAst(handler.body, scope)
+            })
         }
         return compiledMeta
     }
@@ -3647,62 +3666,97 @@ ${def.markup || ''}
     }
 
     // src/jslade/lib/wire.js
-    var WireBus = {
-        _channels: {},
-        _stateChannels: /* @__PURE__ */ new Set(),
-        _last: {},
-        _debug: false,
-        _publish(channel, value, isState) {
-            if (isState) this._last[channel] = value
-            if (this._debug) {
-                console.log(
-                    '%c[WireBus] %c' + channel + ' %c\u2192',
-                    'color:#888',
-                    'font-weight:bold;color:#0d6efd',
-                    'color:#888',
-                    value
-                )
-            }
-            emitHook('message', { channel, value, isState, time: Date.now() })
-            const subs = this._channels[channel]
-            if (!subs) return
-            subs.slice().forEach(function (fn) {
-                fn(value)
-            })
-        },
-        publish(channel, value) {
-            this._publish(channel, value, this._stateChannels.has(channel))
-        },
-        publishState(channel, value) {
-            this._stateChannels.add(channel)
-            this._publish(channel, value, true)
-        },
-        subscribe(channel, fn) {
-            if (this._debug) {
-                console.log(
-                    '%c[WireBus] %csubscribe %c' + channel,
-                    'color:#888',
-                    'color:#198754',
-                    'font-weight:bold;color:#0d6efd'
-                )
-            }
-            ;(this._channels[channel] = this._channels[channel] || []).push(fn)
-            emitHook('subscribe', { channel, time: Date.now() })
-            if (this._stateChannels.has(channel) && channel in this._last) {
-                fn(this._last[channel])
-            }
-            const bus = this
-            return function unsubscribe() {
-                const subs = bus._channels[channel]
-                if (!subs) return
-                const index = subs.indexOf(fn)
-                if (index !== -1) subs.splice(index, 1)
-                if (subs.length === 0 && !bus._stateChannels.has(channel)) {
-                    delete bus._channels[channel]
-                    delete bus._last[channel]
+    var wireDebugEnabled = false
+    function getWireDebug() {
+        return wireDebugEnabled
+    }
+    function setWireDebug(value) {
+        wireDebugEnabled = value === true
+    }
+    function createWireBus(options = {}) {
+        const local = options.local === true
+        const bus = {
+            _channels: {},
+            _last: {},
+            _publish(channel, value) {
+                this._last[channel] = value
+                if (wireDebugEnabled) {
+                    console.log(
+                        '%c[Wire] %c' + channel + ' %c\u2192',
+                        'color:#888',
+                        'font-weight:bold;color:#0d6efd',
+                        'color:#888',
+                        value
+                    )
                 }
-            }
-        },
+                emitHook('message', { channel, value, local, time: Date.now() })
+                const subs = this._channels[channel]
+                if (!subs) return
+                subs.slice().forEach(function (fn) {
+                    fn(value)
+                })
+            },
+            send(channel, value) {
+                this._publish(channel, value)
+            },
+            get(channel, fallback) {
+                if (channel in this._last) return this._last[channel]
+                return fallback
+            },
+            forget(channel) {
+                delete this._last[channel]
+            },
+            subscribe(channel, fn) {
+                if (wireDebugEnabled) {
+                    console.log(
+                        '%c[Wire] %csubscribe %c' + channel,
+                        'color:#888',
+                        'color:#198754',
+                        'font-weight:bold;color:#0d6efd'
+                    )
+                }
+                ;(this._channels[channel] = this._channels[channel] || []).push(fn)
+                emitHook('subscribe', { channel, local, time: Date.now() })
+                if (channel in this._last) fn(this._last[channel])
+                const channels = this._channels
+                return function unsubscribe() {
+                    const subs = channels[channel]
+                    if (!subs) return
+                    const index = subs.indexOf(fn)
+                    if (index !== -1) subs.splice(index, 1)
+                    if (subs.length === 0) delete channels[channel]
+                }
+            },
+            clear() {
+                this._channels = {}
+                this._last = {}
+            },
+        }
+        return bus
+    }
+    function createWireHandle(bus, channel, caller) {
+        const name = String(channel)
+        return {
+            send(value) {
+                bus.send(name, value)
+            },
+            get(fallback) {
+                return bus.get(name, fallback)
+            },
+            clear() {
+                bus.forget(name)
+            },
+            receive(fn) {
+                const off = bus.subscribe(name, fn)
+                if (caller && typeof caller._trackWire === 'function') caller._trackWire(off)
+                return off
+            },
+        }
+    }
+    var publicWireBus = createWireBus()
+    function openPublicWire(channel, host) {
+        const caller = getCurrentInstance() || host || null
+        return createWireHandle(publicWireBus, channel, caller)
     }
 
     // src/jslade/lifecycle/morph.js
@@ -3915,11 +3969,21 @@ ${def.markup || ''}
             this._ownsContainer = options.ownsContainer === true
             this._unmounted = false
             this._renderScheduled = false
+            this._raw = this
             this._renderComponentTree = options.renderComponentTree
             this._morphOptions = options.morphOptions
             this._mergeComponentProps = options.mergeComponentProps
             this._createComponent = options.createComponent
             this._renderQueue = options.renderQueue
+            this._localBus = createWireBus({ local: true })
+            const instance = this
+            this.wire = function (channel) {
+                return openPublicWire(channel, instance)
+            }
+            this.localWire = function (channel) {
+                const caller = getCurrentInstance() || instance
+                return createWireHandle(instance._localBus, channel, caller)
+            }
             this.state = createReactiveState(clonePropDefaults(options.initialState || {}), () => {
                 this.scheduleRender()
             })
@@ -3950,6 +4014,7 @@ ${def.markup || ''}
             this.children.length = 0
             this._runHook('unmount')
             this._releaseWireSubscriptions()
+            this._localBus.clear()
             untrackLiveInstance(this)
             this._registry.delete(this.id)
             if (this._hostMode === 'inner') {
@@ -4145,6 +4210,9 @@ ${def.markup || ''}
                 created[i].mount()
             }
         }
+        _trackWire(off) {
+            ;(this._wireUnsubs = this._wireUnsubs || []).push(off)
+        }
         _releaseWireSubscriptions() {
             if (!this._wireUnsubs) return
             this._wireUnsubs.forEach(function (off) {
@@ -4167,13 +4235,10 @@ ${def.markup || ''}
             const compiled = this._compiled
             if (!compiled?.runHook) return
             const instance = this
-            const receive = function (channel, fn) {
-                const off = WireBus.subscribe(channel, fn)
-                ;(instance._wireUnsubs = instance._wireUnsubs || []).push(off)
-                return off
-            }
             try {
-                compiled.runHook(hookName, instance, instance._api.send, receive)
+                runWithCurrentInstance(instance, function () {
+                    compiled.runHook(hookName, instance)
+                })
             } catch (error) {
                 _devLog.error(this._formatHookError(hookName, error), error)
             }
@@ -4567,10 +4632,10 @@ ${def.markup || ''}
             _devLog.enabled = value === true
         },
         get wireDebug() {
-            return WireBus._debug === true
+            return getWireDebug()
         },
         set wireDebug(value) {
-            WireBus._debug = value === true
+            setWireDebug(value)
         },
         compile(name, def) {
             if (!def) def = this._sourceComponents[name]
@@ -4703,14 +4768,8 @@ ${def.markup || ''}
                 document.head.appendChild(styleTag)
             }
         },
-        send(channel, data) {
-            WireBus.publish(channel, data)
-        },
-        sendState(channel, data) {
-            WireBus.publishState(channel, data)
-        },
-        receive(channel, fn) {
-            return WireBus.subscribe(channel, fn)
+        wire(channel) {
+            return openPublicWire(channel, null)
         },
         event(nativeEvent, element, callback) {
             let node = element
@@ -4726,7 +4785,9 @@ ${def.markup || ''}
             const compiled = instance?._compiled || this.compiledComponents[instance?.name]
             if (!compiled?.runEventHandler) return
             try {
-                compiled.runEventHandler(handlerId, instance, nativeEvent)
+                runWithCurrentInstance(instance, function () {
+                    compiled.runEventHandler(handlerId, instance, nativeEvent)
+                })
             } catch (error) {
                 const handler = compiled.eventHandlers?.[handlerId]
                 const msg = compiled

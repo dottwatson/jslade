@@ -84,13 +84,13 @@
                 // Wire between instances (receiver must mount before sender)
                 {
                     Jslade.compile('int/wire-a', {
-                        script: 'mount(function(send) { send("int/chan", { from: "a" }) })',
+                        script: 'mount(function() { this.wire("int/chan").send({ from: "a" }) })',
                         markup: '<i>a</i>',
                         scopedStyles: '',
                         scopeTargets: false,
                     })
                     Jslade.compile('int/wire-b', {
-                        script: 'props({ msg: "" })\nmount(function(send, receive) { receive("int/chan", function(d) { this.msg = d.from }) })',
+                        script: 'props({ msg: "" })\nmount(function() { this.wire("int/chan").receive(function(d) { this.msg = d.from }) })',
                         markup: '<i>{{ msg }}</i>',
                         scopedStyles: '',
                         scopeTargets: false,
@@ -103,6 +103,77 @@
                     Jslade.renderTo(a, 'int/wire-a', {})
                     await tick()
                     assert(binst.state.msg === 'a', 'Wire deliver between components')
+                }
+
+                // last send is readable; late receive is replayed; clear empties without notify
+                {
+                    Jslade.compile('int/theme-set', {
+                        script: 'mount(function() { this.wire("int/theme").send("dark") })',
+                        markup: '<i></i>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    Jslade.compile('int/theme-late', {
+                        script: 'props({ theme: "" })\nmount(function() { this.wire("int/theme").receive(function(v) { this.theme = v }) })',
+                        markup: '<i></i>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    const box = document.createElement('div')
+                    document.getElementById('stage').appendChild(box)
+                    Jslade.renderTo(box, 'int/theme-set', {})
+                    await tick()
+                    assert(Jslade.wire('int/theme').get() === 'dark', 'Jslade.wire().get() reads last send')
+                    assert(Jslade.wire('int/theme').get('light') === 'dark', 'get fallback unused when populated')
+                    const lateBox = document.createElement('div')
+                    document.getElementById('stage').appendChild(lateBox)
+                    const late = Jslade.renderTo(lateBox, 'int/theme-late', {})
+                    await tick()
+                    assert(late.state.theme === 'dark', 'late receive is replayed last send')
+                    Jslade.wire('int/theme').send('light')
+                    await tick()
+                    assert(Jslade.wire('int/theme').get() === 'light', 'anyone can send')
+                    const received = []
+                    Jslade.wire('int/theme').receive(function (v) {
+                        received.push(v)
+                    })
+                    received.length = 0
+                    Jslade.wire('int/theme').clear()
+                    assert(Jslade.wire('int/theme').get() === undefined, 'clear empties the last value')
+                    assert(Jslade.wire('int/theme').get('dark') === 'dark', 'get fallback after clear')
+                    assert(received.length === 0, 'clear does not notify receive')
+                }
+
+                // localWire stays inside one parent tree
+                {
+                    Jslade.compile('int/chip', {
+                        script:
+                            'props({ taskId: 0 })\nfunction ping() { this.parent.localWire("ping").send({ id: this.taskId }) }',
+                        markup: '<i></i>',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    Jslade.compile('int/board', {
+                        script: 'props({ last: 0 })\nmount(function() { this.localWire("ping").receive(function(d) { this.last = d.id }) })',
+                        markup: '@component("int/chip", { taskId: 7 })',
+                        scopedStyles: '',
+                        scopeTargets: false,
+                    })
+                    const hostA = document.createElement('div')
+                    const hostB = document.createElement('div')
+                    document.getElementById('stage').append(hostA, hostB)
+                    const boardA = Jslade.renderTo(hostA, 'int/board', {})
+                    const boardB = Jslade.renderTo(hostB, 'int/board', {})
+                    await tick()
+                    boardA.children[0].ping()
+                    boardB.children[0].ping()
+                    await tick()
+                    assert(boardA.state.last === 7, 'localWire reaches the parent')
+                    assert(boardB.state.last === 7, 'second tree has its own localWire')
+                    boardA.localWire('ping').send({ id: 9 })
+                    await tick()
+                    assert(boardA.state.last === 9, 'parent send stays on its localWire')
+                    assert(boardB.state.last === 7, 'sibling tree does not see the other localWire')
                 }
 
                 // bootstrap alias

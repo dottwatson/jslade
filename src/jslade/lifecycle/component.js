@@ -9,7 +9,8 @@ import {
 } from '../lib/instance-registry.js'
 import { extractHookFunction } from '../lib/js-scan.js'
 import { createReactiveState } from '../lib/reactive.js'
-import { WireBus } from '../lib/wire.js'
+import { createWireBus, createWireHandle, openPublicWire } from '../lib/wire.js'
+import { runWithCurrentInstance, getCurrentInstance } from '../lib/current-instance.js'
 import { morphChildren, morphNode } from './morph.js'
 import { getUpdatingInstance, runWithUpdatingInstance } from './render-state.js'
 
@@ -123,11 +124,22 @@ export class Component {
         this._ownsContainer = options.ownsContainer === true
         this._unmounted = false
         this._renderScheduled = false
+        this._raw = this
         this._renderComponentTree = options.renderComponentTree
         this._morphOptions = options.morphOptions
         this._mergeComponentProps = options.mergeComponentProps
         this._createComponent = options.createComponent
         this._renderQueue = options.renderQueue
+        this._localBus = createWireBus({ local: true })
+
+        const instance = this
+        this.wire = function (channel) {
+            return openPublicWire(channel, instance)
+        }
+        this.localWire = function (channel) {
+            const caller = getCurrentInstance() || instance
+            return createWireHandle(instance._localBus, channel, caller)
+        }
 
         this.state = createReactiveState(clonePropDefaults(options.initialState || {}), () => {
             this.scheduleRender()
@@ -169,6 +181,7 @@ export class Component {
 
         this._runHook('unmount')
         this._releaseWireSubscriptions()
+        this._localBus.clear()
 
         untrackLiveInstance(this)
         this._registry.delete(this.id)
@@ -379,6 +392,10 @@ export class Component {
         }
     }
 
+    _trackWire(off) {
+        ;(this._wireUnsubs = this._wireUnsubs || []).push(off)
+    }
+
     _releaseWireSubscriptions() {
         if (!this._wireUnsubs) return
         this._wireUnsubs.forEach(function (off) {
@@ -405,13 +422,10 @@ export class Component {
         if (!compiled?.runHook) return
 
         const instance = this
-        const receive = function (channel, fn) {
-            const off = WireBus.subscribe(channel, fn)
-            ;(instance._wireUnsubs = instance._wireUnsubs || []).push(off)
-            return off
-        }
         try {
-            compiled.runHook(hookName, instance, instance._api.send, receive)
+            runWithCurrentInstance(instance, function () {
+                compiled.runHook(hookName, instance)
+            })
         } catch (error) {
             _devLog.error(this._formatHookError(hookName, error), error)
         }

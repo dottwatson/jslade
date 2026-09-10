@@ -228,7 +228,7 @@ strings in `jslade.min.js`:
 
 ```
 start, bootstrap, mountAll, renderTo, scanDOM,
-compiledComponents, directive, sendState
+compiledComponents, directive, wire
 ```
 
 Terser is configured to mangle local names but preserve object properties that must remain

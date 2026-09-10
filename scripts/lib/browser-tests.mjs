@@ -18,10 +18,7 @@ export const BROWSER_SUITES = [
 ]
 
 /** Full suite list including min-bundle smoke test. */
-export const ALL_BROWSER_SUITES = [
-    ...BROWSER_SUITES,
-    { name: 'Min bundle', path: '/tests/browser/bundle-min.html' },
-]
+export const ALL_BROWSER_SUITES = [...BROWSER_SUITES, { name: 'Min bundle', path: '/tests/browser/bundle-min.html' }]
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',

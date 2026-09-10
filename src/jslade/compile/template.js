@@ -12,6 +12,7 @@ import { runMethodAst, runHookAst } from '../ast/eval-stmt.js'
 import { bindParams } from '../ast/eval-expr.js'
 import { parseTemplateScript } from './script.js'
 import { evaluateObjectLiteral } from '../lib/js-scan.js'
+import { runWithCurrentInstance } from '../lib/current-instance.js'
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_$][\w$]*$/
 
@@ -159,6 +160,12 @@ export function compileTemplateDef(templateName, def, directiveRegistry, api) {
             callMethod: (name, methodArgs) => callMethod(name, methodArgs, methodCtx, mergedProps),
         }
         bindParams(fn.params, args, scope, locals)
+        const raw = methodCtx && methodCtx._raw
+        if (raw) {
+            return runWithCurrentInstance(raw, function () {
+                return runMethodAst(fn.body, scope)
+            })
+        }
         return runMethodAst(fn.body, scope)
     }
 
@@ -198,7 +205,7 @@ export function compileTemplateDef(templateName, def, directiveRegistry, api) {
         return callMethod(methodName, args, methodCtx, instance.state)
     }
 
-    compiledMeta.runHook = function runHook(hookName, instance, send, receive) {
+    compiledMeta.runHook = function runHook(hookName, instance) {
         const body = templateScript.hooksAst[hookName]
         if (!body) return
         const methodCtx = createInstanceMethodContext(instance)
@@ -211,8 +218,6 @@ export function compileTemplateDef(templateName, def, directiveRegistry, api) {
             methodsAst: templateScript.methodsAst,
             use: resolveUseBindings(),
             Jslade: api,
-            send,
-            receive,
             callMethod: (name, args) => callMethod(name, args, methodCtx, instance.state),
         })
     }
@@ -233,7 +238,9 @@ export function compileTemplateDef(templateName, def, directiveRegistry, api) {
             event: nativeEvent,
             callMethod: (name, args) => callMethod(name, args, methodCtx, instance.state),
         }
-        runHookAst(handler.body, scope)
+        runWithCurrentInstance(instance, function () {
+            runHookAst(handler.body, scope)
+        })
     }
 
     return compiledMeta

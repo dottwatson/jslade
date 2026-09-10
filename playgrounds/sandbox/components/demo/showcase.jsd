@@ -92,7 +92,7 @@
             this.state.selectedId = id
             this.state.showDetail = true
             this.state.scopeNotes = "selectTask(): this.selectedId=" + this.selectedId + " (prop shortcut)"
-            Jslade.send("showcase/select", { id: id })
+            this.localWire("select").send({ id: id })
         }
 
         function toggleDone(taskId) {
@@ -119,9 +119,9 @@
             this.state.query = ""
         }
 
-        mount((send, receive) => {
-            receive("showcase/ping", (data) => {
-                this.state.childMessage = "WireBus da " + data.from + " id=" + data.id
+        mount(() => {
+            this.localWire("ping").receive((data) => {
+                this.state.childMessage = "Wire da " + data.from + " id=" + data.id
             })
             this.state.scopeNotes = "mount(): this === instance, this.container tagName=" + this.container.tagName
         })

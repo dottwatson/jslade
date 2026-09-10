@@ -8,13 +8,7 @@ import v8toIstanbul from 'v8-to-istanbul'
 import libCoverage from 'istanbul-lib-coverage'
 import libReport from 'istanbul-lib-report'
 import reports from 'istanbul-reports'
-import {
-    BROWSER_SUITES,
-    createStaticServer,
-    listen,
-    packageRoot,
-    runSuite,
-} from './lib/browser-tests.mjs'
+import { BROWSER_SUITES, createStaticServer, listen, packageRoot, runSuite } from './lib/browser-tests.mjs'
 
 const distFile = path.join(packageRoot, 'dist', 'jslade.js')
 const sourceMapFile = path.join(packageRoot, 'dist', 'jslade.js.map')

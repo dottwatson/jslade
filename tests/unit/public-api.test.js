@@ -24,9 +24,7 @@ describe('public API exports', () => {
         assert.equal(typeof Jslade.renderTo, 'function')
         assert.equal(typeof Jslade.compile, 'function')
         assert.equal(typeof Jslade.directive, 'function')
-        assert.equal(typeof Jslade.send, 'function')
-        assert.equal(typeof Jslade.sendState, 'function')
-        assert.equal(typeof Jslade.receive, 'function')
+        assert.equal(typeof Jslade.wire, 'function')
     })
 
     it('exports compile helpers', () => {
@@ -48,7 +46,7 @@ describe('dist bundle guard symbols', () => {
         'scanDOM',
         'compiledComponents',
         'directive',
-        'sendState',
+        'wire',
     ]
 
     it('jslade.min.js contains required public symbols', () => {

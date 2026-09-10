@@ -19,16 +19,7 @@ if (bundle.status !== 0) process.exit(bundle.status ?? 1)
  * A stale or mangled bundle must never ship silently. These are object property names,
  * which terser preserves; matching on `name(` would break as soon as it compacts a method.
  */
-const required = [
-    'start',
-    'bootstrap',
-    'mountAll',
-    'renderTo',
-    'scanDOM',
-    'compiledComponents',
-    'directive',
-    'sendState',
-]
+const required = ['start', 'bootstrap', 'mountAll', 'renderTo', 'scanDOM', 'compiledComponents', 'directive', 'wire']
 
 const srcPath = join(root, 'dist', 'jslade.js')
 const outPath = join(root, 'dist', 'jslade.min.js')

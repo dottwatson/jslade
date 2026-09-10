@@ -247,6 +247,7 @@
                 <option value="counter">Counter</option>
                 <option value="hello">Hello buttons</option>
                 <option value="list">Todo list</option>
+                <option value="wire">Wire (shared)</option>
             </select>
             <label for="props">Props</label>
             <input id="props" type="text" value="{}" spellcheck="false" placeholder='{ count: 0 }'
@@ -383,6 +384,36 @@
                         </ul>
                         <input type="text" value="{{ draft }}" @input(this.onDraft(event)) placeholder="New item…">
                         <button type="button" @click(this.add())">Add</button>
+                    </div>
+                </template>
+            </noembed>
+
+            <noembed name="playground/wire" data-preset="wire">
+                <script>
+                    props({ theme: '' })
+
+                    function setDark() {
+                        this.wire('playground/theme').send('dark')
+                    }
+
+                    function setLight() {
+                        this.wire('playground/theme').send('light')
+                    }
+
+                    mount(function () {
+                        var w = this.wire('playground/theme')
+                        this.state.theme = w.get('unset')
+                        w.receive(function (value) {
+                            this.state.theme = value
+                        })
+                    })
+                </script>
+
+                <template>
+                    <div>
+                        <p>Theme: <strong>{{ theme }}</strong></p>
+                        <button type="button" @click(this.setDark())">Dark</button>
+                        <button type="button" @click(this.setLight())">Light</button>
                     </div>
                 </template>
             </noembed>

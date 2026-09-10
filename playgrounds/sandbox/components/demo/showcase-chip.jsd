@@ -9,11 +9,12 @@
         function notifyParent() {
             if (!this.parent) return
             this.parent.state.childMessage = "Chip " + this.taskId + " cliccato; this.parent ok"
-            Jslade.send("showcase/ping", { from: "chip", id: this.taskId })
+            this.parent.localWire("ping").send({ from: "chip", id: this.taskId })
         }
 
-        mount((send, receive) => {
-            receive("showcase/select", (data) => {
+        mount(() => {
+            if (!this.parent) return
+            this.parent.localWire("select").receive((data) => {
                 this.state.highlight = data.id === this.taskId
             })
         })

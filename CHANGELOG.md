@@ -2,6 +2,19 @@
 
 All notable changes to the `jslade` npm package are documented here.
 
+## 0.3.0
+
+### Changed
+
+- **Wire API** — `Jslade.send` / `sendState` / `receive` and hook arguments `(send, receive)` are replaced by a channel handle:
+  - `this.wire(name)` / `Jslade.wire(name)` — public square (`send`, `receive`, `get`, `clear`)
+  - `this.localWire(name)` — per-instance courtyard; children use `this.parent.localWire(name)`
+- `send` is the flow and the last value; `get()` reads it (optional fallback if empty); `clear()` wipes it without notifying `receive`
+
+### Added
+
+- `Jslade.wire(name).get(fallback?)` — last `send`, or `fallback` / `undefined` if the channel is empty
+
 ## 0.2.0
 
 ### Added

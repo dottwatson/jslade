@@ -90,4 +90,6 @@ export const INSTANCE_RESERVED_NAMES = [
     'remove',
     'unmount',
     'renderTo',
+    'wire',
+    'localWire',
 ]

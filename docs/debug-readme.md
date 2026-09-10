@@ -1,7 +1,8 @@
 # Debug bar — see what your components are doing
 
 When you are building the shop (or anything else), this toolbar shows **live instances**,
-WireBus traffic, render timings, and compiled templates. Dev only — do not ship to production.
+Wire traffic (`send` on `wire` / `localWire`), render timings, and compiled templates. Dev
+only — do not ship to production.
 
 Files live in `debugger/` (package root):
 
@@ -56,7 +57,7 @@ If `window.Jslade` already exists when the module loads, it may auto-attach.
 | Indicator | Description |
 |---|---|
 | 📦 `N instances` | Total active component instances created via `renderTo()` |
-| 📡 `N msgs` | Total WireBus messages sent/received (max 200 stored) |
+| 📡 `N msgs` | Total Wire `send` messages logged (max 200 stored) |
 | 💾 `N MB` | Current JS heap usage (Chrome only, uses `performance.memory`) |
 
 ### Resize
@@ -94,6 +95,9 @@ Each instance row shows:
 
 ### 2. WireBus
 
+The tab is still labelled **WireBus**. It logs **`send`** on public `wire` and `localWire`
+channels. `get` / `clear` do not appear here — they do not emit a message.
+
 Messages grouped by **channel**. Each channel header shows message count and expand/collapse toggle.
 
 Expanded view shows the 20 most recent messages per channel:
@@ -120,7 +124,7 @@ Shows aggregate metrics:
 
 - **Total renders** — count and cumulative render time in milliseconds
 - **Active instances** — current count of live component instances
-- **Channel messages** — total WireBus messages logged (max 200)
+- **Channel messages** — total Wire `send` messages logged (max 200)
 - **Memory** — used JS heap size in MB (Chrome only, from `performance.memory`)
 
 ### 4. Templates
@@ -129,7 +133,7 @@ Lists all compiled templates (from `Jslade.compiledComponents` or `Jslade.list()
 
 ```json
 {
-    "script": "props({ ... })\nmount((send) => { ... })",
+    "script": "props({ ... })\nmount(() => { this.wire('x').receive(() => { ... }) })",
     "scopedStyles": ".my-class { ... }",
     "markup": "<div style-scoped>...</div>",
     "scopeTargets": true
@@ -179,7 +183,7 @@ Example: `jslade_debug_example_dashboard_html`
 |---|---|---|---|
 | `isOpen` | `boolean` | `false` | Panel open or closed |
 | `activeTab` | `string` | `components` | Currently selected tab |
-| `expandedChannels` | `object` | `{}` | Which WireBus channels are expanded |
+| `expandedChannels` | `object` | `{}` | Which Wire channels are expanded |
 | `panelHeight` | `number` | `45` | Panel height in vh (15–80) |
 
 All values survive page reloads and navigation. Different pages have independent state.
@@ -201,7 +205,7 @@ Jslade.debug.disable()    // hide completely
 
 // Get raw data
 Jslade.debug.instances()  // → array of instance objects { _id, template, container, state, ... }
-Jslade.debug.messages()   // → array of WireBus messages { channel, payload, time }
+Jslade.debug.messages()   // → array of Wire send logs { channel, payload, time }
 Jslade.debug.timings()    // → array of render timing entries { name, ms }
 ```
 
@@ -236,7 +240,7 @@ el.component         // → the instance
 
 | Hook | Purpose |
 |---|---|
-| `J._hooks.message` | Logs WireBus messages (channel, payload, timestamp, isState) |
+| `J._hooks.message` | Logs Wire messages (channel, payload, timestamp, local) |
 | `J._hooks.subscribe` | (Reserved for future use) |
 | `J._hooks.render` | Measures render timings per instance (name, ms, instance) |
 | `J._hooks.instance` | Tracks create/unmount lifecycle (`action: 'create'` or `'unmount'`) |

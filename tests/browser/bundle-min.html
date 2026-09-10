@@ -32,7 +32,7 @@
                 assert(typeof Jslade.start === 'function', 'start() available')
                 assert(typeof Jslade.renderTo === 'function', 'renderTo() available')
                 assert(typeof Jslade.directive === 'function', 'directive() available')
-                assert(typeof Jslade.sendState === 'function', 'sendState() available')
+                assert(typeof Jslade.wire === 'function', 'wire() available')
 
                 Jslade.compile('min/smoke', {
                     script: 'props({ t: "ok" })',

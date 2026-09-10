@@ -16,7 +16,8 @@ import { createLifecycle } from './lifecycle/lifecycle.js'
 import { createAutostart } from './lifecycle/autostart.js'
 import { _devLog } from './lib/dev-log.js'
 import { emitHook, hooks as _hooks } from './lib/hooks.js'
-import { WireBus } from './lib/wire.js'
+import { openPublicWire, getWireDebug, setWireDebug } from './lib/wire.js'
+import { runWithCurrentInstance } from './lib/current-instance.js'
 import { snapshotLiveInstancesByTemplate, formatRuntimeError } from './lib/instance-registry.js'
 import { escapeHtml, parseDirectiveToken, parseForeachExpression, readBalancedParentheses } from './lib/html-utils.js'
 import { COMPONENT_DEF_TAG } from './lib/constants.js'
@@ -128,10 +129,10 @@ Object.assign(Jslade, {
     },
 
     get wireDebug() {
-        return WireBus._debug === true
+        return getWireDebug()
     },
     set wireDebug(value) {
-        WireBus._debug = value === true
+        setWireDebug(value)
     },
 
     compile(name, def) {
@@ -289,16 +290,8 @@ Object.assign(Jslade, {
         }
     },
 
-    send(channel, data) {
-        WireBus.publish(channel, data)
-    },
-
-    sendState(channel, data) {
-        WireBus.publishState(channel, data)
-    },
-
-    receive(channel, fn) {
-        return WireBus.subscribe(channel, fn)
+    wire(channel) {
+        return openPublicWire(channel, null)
     },
 
     event(nativeEvent, element, callback) {
@@ -316,7 +309,9 @@ Object.assign(Jslade, {
         const compiled = instance?._compiled || this.compiledComponents[instance?.name]
         if (!compiled?.runEventHandler) return
         try {
-            compiled.runEventHandler(handlerId, instance, nativeEvent)
+            runWithCurrentInstance(instance, function () {
+                compiled.runEventHandler(handlerId, instance, nativeEvent)
+            })
         } catch (error) {
             const handler = compiled.eventHandlers?.[handlerId]
             const msg = compiled

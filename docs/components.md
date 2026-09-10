@@ -312,9 +312,9 @@ Run it locally: `npm run build && npm run dev` →
 ```
 
 ```js
-mount((send, receive) => {
-    receive('showcase/ping', (data) => {
-        this.state.childMessage = 'WireBus da ' + data.from + ' id=' + data.id
+mount(() => {
+    this.localWire('ping').receive((data) => {
+        this.state.childMessage = 'Wire da ' + data.from + ' id=' + data.id
     })
 })
 ```
@@ -325,8 +325,15 @@ mount((send, receive) => {
 function notifyParent() {
     if (!this.parent) return
     this.parent.state.childMessage = 'Chip ' + this.taskId + ' cliccato; this.parent ok'
-    Jslade.send('showcase/ping', { from: 'chip', id: this.taskId })
+    this.parent.localWire('ping').send({ from: 'chip', id: this.taskId })
 }
+
+mount(() => {
+    if (!this.parent) return
+    this.parent.localWire('select').receive((data) => {
+        this.state.highlight = data.id === this.taskId
+    })
+})
 ```
 
 ### Mounting the example
@@ -414,15 +421,17 @@ Hooks run only on **live** instances created through `<jslade>` or `renderTo()`.
 | `updated(fn)` | After each re-render | Every update; not on first paint |
 | `unmount(fn)` | Before the instance is destroyed | Once per instance |
 
-All hooks receive **`(send, receive)`** for Wire channels (see below).
+| `unmount(fn)` | Before the instance is destroyed | Once per instance |
+
+Hooks do not take Wire helpers as arguments. Use **`this.wire`** / **`this.localWire`** (see below).
 
 ```js
-mount(function (send, receive) {
+mount(function () {
     var self = this
     fetch('/api/tasks').then(function (r) { return r.json() }).then(function (data) {
         self.items = data
     })
-    receive('tasks/refresh', function () {
+    this.wire('tasks/refresh').receive(function () {
         fetch('/api/tasks').then(function (r) { return r.json() }).then(function (data) {
             self.items = data
         })
@@ -631,7 +640,7 @@ Each `@component` creates a **child instance** with its own state, lifecycle, an
 |---|---|
 | **`key`** | Required when the list can reorder, filter, or delete. Without it the patcher matches by position and state can stick to the wrong row after edits. |
 | **Parent → child** | On re-render the parent writes back only the props it passed. State the child set in its own `mount()` is left alone. |
-| **Child → parent** | `this.parent.state…`, Wire `send()`, or shared helpers via `use()`. |
+| **Child → parent** | `this.parent.state…`, `this.parent.localWire(…)`, or shared helpers via `use()`. |
 | **Tree** | Parent holds `this.children`; each child holds `this.parent`. |
 
 ---
@@ -667,31 +676,51 @@ You may have multiple roots with `style-scoped` in one template if layout requir
 
 ## Wire — communication between components
 
-Wire provides named channels for loose coupling. Use it when siblings or distant components
-must react to events without direct parent/child references.
+`wire(name)` returns a handle: **`.send()`**, **`.receive()`**, **`.get()`**, **`.clear()`**.
 
-Inside lifecycle hooks:
+A channel is a string. It is not declared. An unknown name and a name that was never sent are the same **empty** channel: `get()` returns `undefined`.
+
+| | `this.wire('theme')` / `Jslade.wire('theme')` | `this.localWire('ping')` |
+|---|---|---|
+| Where | Public square — the whole page | This instance's courtyard |
+| Who can join | Anyone who knows the name | This instance, and children via `this.parent.localWire('ping')` |
+| Unmount | Last `send` stays on the square | The courtyard is destroyed |
+
+`send` is the flow: listeners hear it, and that value becomes the last one. `get()` reads the last `send` (optional fallback if empty). `receive` hears the flow from now on, and if a last value already exists it is replayed — it is never called for an empty channel. `clear()` wipes the last value and does **not** notify `receive`.
 
 ```js
-mount(function (send, receive) {
-    send('tasks/changed', { count: this.items.length })
+function setLight() {
+    this.wire('theme').send('light')
+}
 
-    receive('tasks/highlight', function (data) {
-        this.highlightId = data.id
+function tap() {
+    this.parent.localWire('ping').send({ id: this.taskId })
+}
+
+mount(function () {
+    this.wire('theme').receive(function (value) {
+        this.state.theme = value
+    })
+    this.localWire('ping').receive(function (data) {
+        this.state.lastChip = data.id
     })
 })
 ```
 
-Global API (available anywhere after the engine loads):
+From outside the tree:
 
 ```js
-Jslade.send('tasks/changed', { count: 5 })       // one-off event, no replay
-Jslade.sendState('theme', 'dark')               // state channel, replayed to new subscribers
-Jslade.receive('theme', function (value) { … })
+Jslade.wire('theme').send('dark')
+Jslade.wire('theme').get()                 // 'dark'
+Jslade.wire('theme').get('light')          // 'dark' (fallback unused)
+Jslade.wire('theme').clear()
+Jslade.wire('theme').get('light')          // 'light' — empty
+Jslade.wire('theme').receive(function (value) { … })
 ```
 
-Subscriptions registered through **`receive()`** inside **`mount()`** are released
-automatically on **`unmount()`**.
+Two parent instances do not share `localWire` names. They do share `wire('theme')`.
+
+Subscribe in **`mount()`**, not `updated()` — each `receive` adds a listener. Subscriptions opened through **`this.wire` / `this.localWire`** are released on **`unmount()`**. `Jslade.wire(…).receive()` from page script is not: keep the unsubscribe function it returns.
 
 Enable traffic logging during development:
 
@@ -794,9 +823,14 @@ After **`renderTo()`** or **`start()`**, the root instance is available on the m
 | `instance.findAll(sel)` | `querySelectorAll` on the container |
 | `instance.closest(sel)` | Walk up from the container to match a selector |
 | `instance.unmount()` | Destroy the instance and release Wire subscriptions |
+| `instance.wire(name)` | Public channel handle (`send` / `receive` / `get` / `clear`) |
+| `instance.localWire(name)` | Per-instance channel handle; children use `this.parent.localWire(name)` |
 | `instance.remove()` | Remove the container from the DOM (does not run lifecycle hooks) |
 | `instance.renderTo(target)` | Append detached container to a DOM node |
 | `instance.parent` / `instance.children` | Parent/child tree from `@component` |
+
+**`Jslade.wire(name)`** is the public-square handle from outside a component — same
+`send` / `receive` / `get` / `clear` as `instance.wire(name)`. There is no `Jslade.localWire`.
 
 **`Jslade.event(nativeEvent, element, callback)`** walks up from `element` to find the nearest
 component and invokes `callback` with the instance as `this`. Used internally for event
@@ -814,6 +848,8 @@ delegation; available for custom integrations.
 | Scoped styles have no effect | Add `style-scoped` on markup roots alongside `<style scoped>` |
 | `mount()` seems to run twice | Each `renderTo()` creates a new instance; re-render alone does not re-run `mount()` |
 | Infinite update loop | Do not assign `state` unconditionally inside `updated()` |
+| `receive` fires many times | Subscribe in `mount()`, not `updated()` — each call adds a listener |
+| Empty `get()` is `undefined` | The name was never `send` or was `clear()`; pass a fallback: `get('light')` |
 | Method not found in template | Declare with `function name() {}`, not `const name = () => {}` |
 
 During development, run **`Jslade.start({ dev: true })`** and inspect

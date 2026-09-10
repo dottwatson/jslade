@@ -379,8 +379,6 @@ function resolveIdent(name, scope) {
     if (name === 'globalThis' && scope.globalThis) return scope.globalThis
     if (name === '_' && scope.buffer) return scope.buffer
     if (name === 'event' && scope.event) return scope.event
-    if (name === 'send' && scope.send) return scope.send
-    if (name === 'receive' && scope.receive) return scope.receive
     // Built-ins and page globals (Number, Math, console, window…) resolve as they would in plain JS.
     if (typeof globalThis !== 'undefined' && name in globalThis) return globalThis[name]
     return undefined
@@ -459,8 +457,6 @@ function forkScope(scope, locals) {
         callMethod: scope.callMethod,
         use: scope.use,
         Jslade: scope.Jslade,
-        send: scope.send,
-        receive: scope.receive,
         event: scope.event,
         escapeHtml: scope.escapeHtml,
         emitChild: scope.emitChild,

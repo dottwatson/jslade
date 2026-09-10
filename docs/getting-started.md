@@ -249,7 +249,7 @@ over script defaults.
 ```js
 Jslade.start({
     dev: true,           // extra console warnings — use while developing
-    showChannels: false, // log WireBus traffic when true
+    showChannels: false, // log Wire traffic when true
     mount: true,         // false = scan definitions only, do not mount placeholders
     root: document,      // limit placeholder search to a subtree
 })
@@ -258,7 +258,7 @@ Jslade.start({
 | Option | Default | When to change it |
 |---|---|---|
 | `dev` | `false` | Set `true` during development to surface template and handler issues |
-| `showChannels` | `false` | Set `true` when debugging Wire message flow between components |
+| `showChannels` | `false` | Set `true` when debugging `wire` / `localWire` message flow |
 | `mount` | `true` | Set `false` if you only want to register in-page definitions without mounting yet |
 | `root` | `document` | Pass a container element when placeholders live inside a panel loaded via AJAX |
 
@@ -366,3 +366,8 @@ changed.
 **Styles missing on a scoped component.** Scoped CSS requires both `<style scoped>` in the
 file and the **`style-scoped`** attribute on the markup root inside the template block.
 Without `style-scoped`, rules compile but nothing in the DOM matches them.
+
+**Components do not talk.** There is no `send` / `receive` argument on `mount()`. Use
+**`this.wire('name')`** (page-wide) or **`this.localWire('name')`** (this instance; children
+use **`this.parent.localWire`**). `send` is the flow and the last value; `get(fallback?)`
+reads it; `receive` is never called on an empty channel; `clear()` empties without notifying.
