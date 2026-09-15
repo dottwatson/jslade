@@ -47,6 +47,11 @@ function normalizeDocPath(filePath) {
     return String(filePath).replace(/\\/g, '/')
 }
 
+/** GitHub Wiki resolves [[links]] by page title (spaces), not by .md filename (hyphens). */
+function toWikiPageTitle(slug) {
+    return slug.replace(/-/g, ' ')
+}
+
 /** @param {{ wiki: string, text?: string, anchor?: string }} opts */
 function pageLink({ wiki, text, anchor = '' }) {
     if (localMode) {
@@ -54,7 +59,8 @@ function pageLink({ wiki, text, anchor = '' }) {
         const label = text ?? wiki
         return `[${label}](${target})`
     }
-    const wikiTarget = anchor ? `${wiki}${anchor}` : wiki
+    const pageTitle = toWikiPageTitle(wiki)
+    const wikiTarget = anchor ? `${pageTitle}${anchor}` : pageTitle
     if (text) return `[[${wikiTarget}|${text}]]`
     return `[[${wikiTarget}]]`
 }

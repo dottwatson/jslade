@@ -318,7 +318,7 @@ When you push changes under `docs/` to **`main`**, the repo-root workflow
 **`.github/workflows/sync-wiki.yml`** runs **`scripts/sync-wiki.mjs`**, which:
 
 - Flattens chapter files into wiki pages (`01-How-Jslade-Thinks.md`, …)
-- Rewrites relative markdown links to `[[Wiki-Links]]`
+- Rewrites relative markdown links to `[[Page Title|label]]` (GitHub resolves titles with spaces, not filename hyphens)
 - Generates **`Home.md`** and **`_Sidebar.md`**
 
 Do not edit wiki pages in the GitHub UI — changes are overwritten on the next sync.
