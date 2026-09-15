@@ -39,6 +39,7 @@
         "test:browser": "node scripts/run-browser-tests.mjs",
         "test:coverage": "node scripts/run-coverage.mjs",
         "test:ci": "npm run build && npm test",
+        "wiki:preview": "node scripts/sync-wiki.mjs ../wiki-preview --local",
         "prepublishOnly": "npm run build"
     },
     "keywords": [

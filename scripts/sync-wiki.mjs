@@ -1,8 +1,10 @@
 /**
- * Sync package/docs book → GitHub Wiki repo.
+ * Sync package/docs book → GitHub Wiki repo (or local flat preview).
  * Source of truth: docs/ + docs/_book.json
  *
- * Usage: node scripts/sync-wiki.mjs <path-to-wiki-clone>
+ * Usage:
+ *   node scripts/sync-wiki.mjs <path-to-wiki-clone>           # GitHub Wiki ([[links]])
+ *   node scripts/sync-wiki.mjs <path-to-wiki-clone> --local     # local preview (./Page.md links)
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,10 +15,12 @@ const packageRoot = path.resolve(__dirname, '..')
 const docsDir = path.join(packageRoot, 'docs')
 const bookPath = path.join(docsDir, '_book.json')
 
-const wikiDir = process.argv[2]
+const args = process.argv.slice(2)
+const localMode = args.includes('--local')
+const wikiDir = args.find((arg) => !arg.startsWith('-'))
 
 if (!wikiDir) {
-    console.error('Usage: node scripts/sync-wiki.mjs <path-to-wiki-clone>')
+    console.error('Usage: node scripts/sync-wiki.mjs <path-to-wiki-clone> [--local]')
     process.exit(1)
 }
 
@@ -41,6 +45,18 @@ function toWikiSlug(filename) {
 /** @param {import('node:fs').PathLike} filePath */
 function normalizeDocPath(filePath) {
     return String(filePath).replace(/\\/g, '/')
+}
+
+/** @param {{ wiki: string, text?: string, anchor?: string }} opts */
+function pageLink({ wiki, text, anchor = '' }) {
+    if (localMode) {
+        const target = `./${wiki}.md${anchor}`
+        const label = text ?? wiki
+        return `[${label}](${target})`
+    }
+    const wikiTarget = anchor ? `${wiki}${anchor}` : wiki
+    if (text) return `[[${wikiTarget}|${text}]]`
+    return `[[${wikiTarget}]]`
 }
 
 /** @param {object} book */
@@ -73,8 +89,7 @@ function rewriteLinks(body, linkMap, fromFile) {
         const resolved = resolveDocLink(filePart, fromFile)
         const wiki = linkMap.get(resolved)
         if (!wiki) return full
-        const wikiTarget = anchor ? `${wiki}${anchor}` : wiki
-        return `[[${wikiTarget}|${text || wiki}]]`
+        return pageLink({ wiki, text: text || wiki, anchor })
     })
 }
 
@@ -85,17 +100,17 @@ function resolveDocLink(raw, fromFile) {
     return normalizeDocPath(path.relative(docsDir, abs))
 }
 
-/** @param {string} wikiSlug @param {string} anchor */
-function wikiLink(wikiSlug, anchor) {
+/** @param {string} wikiSlug @param {string} [anchor] */
+function wikiLink(wikiSlug, anchor = '') {
     if (anchor) {
         const slug = anchor
             .slice(1)
             .toLowerCase()
             .replace(/[^\w]+/g, '-')
             .replace(/^-|-$/g, '')
-        return `[[${wikiSlug}#${slug}|${wikiSlug}]]`
+        return pageLink({ wiki: wikiSlug, anchor: `#${slug}` })
     }
-    return `[[${wikiSlug}]]`
+    return pageLink({ wiki: wikiSlug })
 }
 
 const book = JSON.parse(fs.readFileSync(bookPath, 'utf8'))
@@ -105,12 +120,6 @@ const chapters = collectChapters(book)
 const fileToWiki = new Map()
 for (const ch of chapters) {
     fileToWiki.set(ch.file, ch.wiki)
-}
-
-/** @type {Map<string, typeof chapters[0]>} */
-const wikiToChapter = new Map()
-for (const ch of chapters) {
-    wikiToChapter.set(ch.wiki, ch)
 }
 
 for (let i = 0; i < chapters.length; i++) {
@@ -125,8 +134,8 @@ for (let i = 0; i < chapters.length; i++) {
     let body = fs.readFileSync(srcPath, 'utf8')
     body = rewriteLinks(body, fileToWiki, ch.file)
     const nav = []
-    if (prev) nav.push(`← [[${prev.wiki}|${prev.title}]]`)
-    if (next) nav.push(`[[${next.wiki}|${next.title}]] →`)
+    if (prev) nav.push(`← ${pageLink({ wiki: prev.wiki, text: prev.title })}`)
+    if (next) nav.push(`${pageLink({ wiki: next.wiki, text: next.title })} →`)
     if (nav.length) body += `\n\n---\n\n${nav.join(' · ')}\n`
     fs.writeFileSync(path.join(wikiRoot, `${ch.wiki}.md`), body)
     console.log(`${ch.file} → ${ch.wiki}.md`)
@@ -139,11 +148,21 @@ const homeLines = [
     '',
     'Client-side component engine with Blade-like templates, reactive `state`, and scoped CSS.',
     '',
-    `These wiki pages are **synced automatically** from [\`docs/\`](https://github.com/dottwatson/jslade/tree/main/package/docs) in the main repository — edit there, not in the wiki UI.`,
-    '',
-    '## Reading paths',
-    '',
 ]
+
+if (localMode) {
+    homeLines.push(
+        '> Local preview — edit source files in `package/docs/`, then run `npm run wiki:preview`.',
+        ''
+    )
+} else {
+    homeLines.push(
+        `These wiki pages are **synced automatically** from [\`docs/\`](https://github.com/dottwatson/jslade/tree/main/package/docs) in the main repository — edit there, not in the wiki UI.`,
+        ''
+    )
+}
+
+homeLines.push('## Reading paths', '')
 
 for (const rp of book.readingPaths) {
     homeLines.push(`### ${rp.title}`)
@@ -180,16 +199,24 @@ homeLines.push(
 fs.writeFileSync(path.join(wikiRoot, 'Home.md'), homeLines.join('\n'))
 console.log('Home.md written')
 
-const sidebarLines = ['### [[Home]]', '']
+const sidebarLines = [
+    localMode ? `### ${pageLink({ wiki: 'Home', text: 'Home' })}` : '### [[Home]]',
+    '',
+]
 
 for (const section of book.sections) {
     sidebarLines.push(`**${section.title}**`)
     for (const ch of section.chapters) {
         const wiki = ch.wiki || toWikiSlug(ch.file)
-        sidebarLines.push(`- [[${wiki}|${ch.title}]]`)
+        sidebarLines.push(`- ${pageLink({ wiki, text: ch.title })}`)
     }
     sidebarLines.push('')
 }
 
 fs.writeFileSync(path.join(wikiRoot, '_Sidebar.md'), sidebarLines.join('\n'))
 console.log('_Sidebar.md written')
+
+if (localMode) {
+    console.log(`Local preview ready in ${wikiRoot}`)
+    console.log('Open wiki-preview/Home.md in Markdown preview — links resolve to sibling .md files.')
+}

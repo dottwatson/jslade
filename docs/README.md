@@ -96,9 +96,11 @@ to the [GitHub Wiki](https://github.com/dottwatson/jslade/wiki) via `scripts/syn
 ## Preview wiki locally
 
 ```sh
-cd package
-node scripts/migrate-docs.mjs    # only if migrating legacy flat files
-node scripts/sync-wiki.mjs ../wiki-preview
+npm run wiki:preview    # from repo root or package/
 ```
 
-Open `wiki-preview/Home.md` and `_Sidebar.md` to inspect the generated wiki layout.
+Generates `wiki-preview/` with standard Markdown links (`./Page.md`). Open
+`wiki-preview/Home.md` in the editor preview — sidebar and cross-links resolve locally.
+
+GitHub Wiki uses `[[Wiki-Links]]` instead; that format is produced automatically on push
+to `main` by `.github/workflows/sync-wiki.yml` (no `--local` flag).

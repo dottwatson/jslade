@@ -314,7 +314,7 @@ and README. Generated artifacts you do not list there are never published.
 User documentation lives in **`docs/`** as a structured book. Chapter order, parts, and
 reading paths are defined in **`docs/_book.json`**.
 
-When you push changes under `docs/` to **`main`**, the workflow
+When you push changes under `docs/` to **`main`**, the repo-root workflow
 **`.github/workflows/sync-wiki.yml`** runs **`scripts/sync-wiki.mjs`**, which:
 
 - Flattens chapter files into wiki pages (`01-How-Jslade-Thinks.md`, …)
@@ -325,11 +325,11 @@ Do not edit wiki pages in the GitHub UI — changes are overwritten on the next 
 
 To run a sync manually: **Actions → Sync wiki from docs → Run workflow**.
 
-To preview locally:
+To preview locally (Markdown links that work in the editor):
 
 ```sh
-node scripts/sync-wiki.mjs ../wiki-preview
-# inspect wiki-preview/Home.md and _Sidebar.md
+npm run wiki:preview
+# open wiki-preview/Home.md
 ```
 
 ---

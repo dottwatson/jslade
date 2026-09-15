@@ -20,7 +20,7 @@ You are working on the **`jslade` npm package** — a dependency-free client-sid
 **Engine change:** `npm run build`
 
 **Docs change:** edit `docs/` (book layout + `docs/_book.json`); keep `README.md` concise.
-Wiki sync: `node scripts/sync-wiki.mjs <wiki-clone>`.
+Wiki preview: `npm run wiki:preview`. GitHub sync: `.github/workflows/sync-wiki.yml`.
 
 **Sandbox component:** edit `playgrounds/sandbox/components/**/*.jsd`; reload via `npm run dev`
 
