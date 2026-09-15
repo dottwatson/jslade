@@ -3614,7 +3614,7 @@ ${def.markup || ''}
     }
 
     // src/jslade/lib/hooks.js
-    var hooks = { message: [], subscribe: [], render: [], instance: [], directive: [] }
+    var hooks = { message: [], subscribe: [], render: [], instance: [], directive: [], resource: [] }
     function emitHook(type, payload) {
         const list = hooks[type]
         if (!list) return
@@ -3707,7 +3707,7 @@ ${def.markup || ''}
             forget(channel) {
                 delete this._last[channel]
             },
-            subscribe(channel, fn) {
+            subscribe(channel, fn, subscriber) {
                 if (wireDebugEnabled) {
                     console.log(
                         '%c[Wire] %csubscribe %c' + channel,
@@ -3717,7 +3717,7 @@ ${def.markup || ''}
                     )
                 }
                 ;(this._channels[channel] = this._channels[channel] || []).push(fn)
-                emitHook('subscribe', { channel, local, time: Date.now() })
+                emitHook('subscribe', { channel, local, time: Date.now(), instance: subscriber || null })
                 if (channel in this._last) fn(this._last[channel])
                 const channels = this._channels
                 return function unsubscribe() {
@@ -3748,7 +3748,7 @@ ${def.markup || ''}
                 bus.forget(name)
             },
             receive(fn) {
-                const off = bus.subscribe(name, fn)
+                const off = bus.subscribe(name, fn, caller)
                 if (caller && typeof caller._trackWire === 'function') caller._trackWire(off)
                 return off
             },
@@ -4731,6 +4731,9 @@ ${def.markup || ''}
         if (!_devLog.enabled) return
         console.log('[Jslade.loadResources] ' + kind + ' ' + type + ' ' + src)
     }
+    function notifyResource(type, src, status) {
+        emitHook('resource', { type, src, status, time: Date.now() })
+    }
     function createLoadResources(options) {
         const opts = options || {}
         const cache = opts.cache || /* @__PURE__ */ new Map()
@@ -4773,6 +4776,7 @@ ${def.markup || ''}
         }
         function loadFromNetwork(entry, resolved) {
             if (entry.type === 'module') {
+                notifyResource(entry.type, resolved, 'module')
                 return Promise.resolve()
                     .then(function () {
                         return importModule(resolved)
@@ -4786,11 +4790,13 @@ ${def.markup || ''}
             const existing = findExisting(doc, entry.type, entry.src, resolved)
             if (existing) {
                 logDev('dom hit', entry.type, resolved)
+                notifyResource(entry.type, resolved, 'dom')
                 return waitForElement(existing, entry.type, true).then(function () {
                     return resultOf(entry)
                 })
             }
             logDev('network', entry.type, resolved)
+            notifyResource(entry.type, resolved, 'network')
             return insertAndWait(doc, entry, resolved).then(function () {
                 return resultOf(entry)
             })
@@ -4801,6 +4807,7 @@ ${def.markup || ''}
             const cacheKey = entry.type + '\0' + resolved
             if (typeof entry.test === 'function' && entry.test()) {
                 logDev('test skip', entry.type, resolved)
+                notifyResource(entry.type, resolved, 'skip')
                 try {
                     assertGlobal(win, entry, entry.src)
                 } catch (err) {
@@ -4812,6 +4819,7 @@ ${def.markup || ''}
             }
             if (cache.has(cacheKey)) {
                 logDev('cache hit', entry.type, resolved)
+                notifyResource(entry.type, resolved, 'cache')
                 return cache.get(cacheKey).then(function (cached) {
                     assertGlobal(win, entry, entry.src)
                     return cached.type ? cached : resultOf(entry, cached && cached.module)

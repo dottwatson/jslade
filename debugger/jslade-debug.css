@@ -116,6 +116,17 @@
 .jslade-debug-badge--block   { background: var(--jsd-block); color: #fff; }
 .jslade-debug-badge--inline  { background: var(--jsd-inline); color: #fff; }
 .jslade-debug-badge--if      { background: var(--jsd-send); color: #fff; }
+.jslade-debug-badge--wire    { background: var(--jsd-accent); color: #fff; }
+.jslade-debug-badge--local   { background: var(--jsd-block); color: #fff; }
+.jslade-debug-badge--resource { background: #495057; color: #fff; }
+.jslade-debug-badge--type    { background: #343a40; color: #adb5bd; }
+
+.jslade-debug-resource {
+    padding: 4px 0;
+    font-size: 11px;
+    border-bottom: 1px solid #1e1e3a;
+    word-break: break-all;
+}
 
 .jslade-debug-btn {
     border: none;

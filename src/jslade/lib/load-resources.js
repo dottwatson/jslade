@@ -4,6 +4,7 @@
  */
 
 import { _devLog } from './dev-log.js'
+import { emitHook } from './hooks.js'
 
 const TYPES = { script: true, module: true, style: true }
 
@@ -207,6 +208,10 @@ function logDev(kind, type, src) {
     console.log('[Jslade.loadResources] ' + kind + ' ' + type + ' ' + src)
 }
 
+function notifyResource(type, src, status) {
+    emitHook('resource', { type, src, status, time: Date.now() })
+}
+
 /**
  * @param {object} [options]
  * @param {Document} [options.document]
@@ -264,6 +269,7 @@ export function createLoadResources(options) {
 
     function loadFromNetwork(entry, resolved) {
         if (entry.type === 'module') {
+            notifyResource(entry.type, resolved, 'module')
             return Promise.resolve()
                 .then(function () {
                     return importModule(resolved)
@@ -279,12 +285,14 @@ export function createLoadResources(options) {
         const existing = findExisting(doc, entry.type, entry.src, resolved)
         if (existing) {
             logDev('dom hit', entry.type, resolved)
+            notifyResource(entry.type, resolved, 'dom')
             return waitForElement(existing, entry.type, true).then(function () {
                 return resultOf(entry)
             })
         }
 
         logDev('network', entry.type, resolved)
+        notifyResource(entry.type, resolved, 'network')
         return insertAndWait(doc, entry, resolved).then(function () {
             return resultOf(entry)
         })
@@ -297,6 +305,7 @@ export function createLoadResources(options) {
 
         if (typeof entry.test === 'function' && entry.test()) {
             logDev('test skip', entry.type, resolved)
+            notifyResource(entry.type, resolved, 'skip')
             try {
                 assertGlobal(win, entry, entry.src)
             } catch (err) {
@@ -309,6 +318,7 @@ export function createLoadResources(options) {
 
         if (cache.has(cacheKey)) {
             logDev('cache hit', entry.type, resolved)
+            notifyResource(entry.type, resolved, 'cache')
             return cache.get(cacheKey).then(function (cached) {
                 assertGlobal(win, entry, entry.src)
                 return cached.type ? cached : resultOf(entry, cached && cached.module)

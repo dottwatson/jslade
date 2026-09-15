@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Jslade — debug bar tests</title>
+        <link rel="stylesheet" href="../../debugger/jslade-debug.css" />
+        <style>
+            body { font-family: ui-monospace, monospace; margin: 1rem; }
+            .ok::before { content: '✓ '; color: #080; }
+            .ko::before { content: '✗ '; color: #c00; }
+            .ko { color: #c00; }
+            #stage { position: absolute; left: -9999px; }
+        </style>
+    </head>
+    <body>
+        <ul id="out"></ul>
+        <div id="stage"></div>
+        <script src="../../dist/jslade.js"></script>
+        <script type="module">
+            import { attachDebug } from '../../debugger/jslade-debug.js'
+
+            const out = document.getElementById('out')
+            let passed = 0
+            let failed = 0
+
+            function assert(condition, message) {
+                const li = document.createElement('li')
+                li.className = condition ? 'ok' : 'ko'
+                li.textContent = message
+                out.appendChild(li)
+                condition ? passed++ : failed++
+            }
+
+            const tick = () => new Promise((r) => setTimeout(r, 20))
+
+            async function run() {
+                Jslade.compile('dbg/wire', {
+                    script:
+                        "props({ n: 0 })\n" +
+                        "mount(function() {\n" +
+                        "  this.wire('pub').receive(function() {})\n" +
+                        "  this.localWire('loc').receive(function() {})\n" +
+                        '})',
+                    markup: '<span class="n">{{ n }}</span>',
+                    scopedStyles: '',
+                    scopeTargets: false,
+                })
+
+                const box = document.createElement('div')
+                document.getElementById('stage').appendChild(box)
+                const inst = Jslade.renderTo(box, 'dbg/wire', { n: 0 })
+
+                attachDebug(Jslade)
+                assert(document.getElementById('jslade-debug-bar'), 'debug bar mounts in DOM')
+                assert(typeof Jslade.debug.instances === 'function', 'debug.instances() exists')
+                assert(typeof Jslade.debug.resources === 'function', 'debug.resources() exists')
+                assert(typeof Jslade.debug.subscriptions === 'function', 'debug.subscriptions() exists')
+
+                Jslade.debug.show()
+                await tick()
+
+                assert(document.querySelector('#jslade-debug-bar.open'), 'debug.show() opens panel')
+                assert(document.querySelector('[data-tab="resources"]'), 'Resources tab exists')
+
+                inst.wire('pub').send(3)
+                inst.localWire('loc').send(2)
+                await tick()
+
+                const msgs = Jslade.debug.messages()
+                assert(msgs.length >= 2, 'wire sends are logged')
+                assert(msgs.some((m) => m.channel === 'pub' && m.local === false), 'public wire flagged')
+                assert(msgs.some((m) => m.channel === 'loc' && m.local === true), 'localWire flagged')
+
+                const subs = Jslade.debug.subscriptions()
+                assert(subs.some((s) => s.channel === 'pub' && s.instanceId === inst._id), 'wire receive tracked with instance')
+
+                await Jslade.loadResources({ type: 'script', src: 'https://example.test/debug-fixture.js', test: () => true })
+                await tick()
+
+                const resources = Jslade.debug.resources()
+                assert(resources.some((r) => r.status === 'skip'), 'loadResources emits resource hook')
+
+                Jslade.debug.hide()
+                await tick()
+                assert(!document.querySelector('#jslade-debug-bar.open'), 'debug.hide() closes panel')
+
+                inst.unmount()
+                await tick()
+                assert(Jslade.debug.instances().length === 0, 'unmount removes tracked instances')
+
+                window.__results = { passed, failed }
+            }
+
+            run().catch((err) => {
+                assert(false, String(err.stack || err))
+                window.__results = { passed, failed: failed + 1 }
+            })
+        </script>
+    </body>
+</html>

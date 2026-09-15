@@ -14,7 +14,8 @@ npm run test:coverage  # unified unit + browser → badges/coverage.json
 
 | Path | Runner | What it covers |
 |------|--------|----------------|
-| `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, `loadResources`, custom directives, eval-stmt, legacy compile, public API |
+| `tests/unit/*.test.js` | Node `node:test` | Parser, markup compile, script scan, import rules, Wire, `loadResources`, debug helpers/hooks, custom directives, eval-stmt, legacy compile, public API |
+| `tests/browser/debug-bar.html` | Playwright | `attachDebug`, WireBus (`wire`/`localWire`), Resources tab, programmatic API |
 | `tests/patch.html` | Playwright | DOM morphing — focus, keys, children, attributes, textarea/option/text nodes, render loop guard (46 cases) |
 | `tests/browser/integration.html` | Playwright | `import`/`start`, `render()`, reactive `renderTo`, Wire, `list()` |
 | `tests/browser/statement-runtime.html` | Playwright | `for`/`while`/`try`/`catch` in live component methods |
@@ -42,6 +43,7 @@ npm run test:ci
 ## What is not automated
 
 - Visual regression / scoped CSS pixel checks
+- Debug bar drag-resize UX and live JSON state editing edge cases
 - Full sandbox `showcase.jsd` manual UX
 - npm publish dry-run (build guard covers min bundle symbols)
 

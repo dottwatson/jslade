@@ -13,7 +13,7 @@ component name  →  raw <noembed>…</noembed> source text
 
 **`Jslade.import()` is not a script loader.** It only registers component sources. To
 lazy-load JS/CSS from a component, use **`this.loadResources()`** —
-[load-resources.md](./load-resources.md).
+[17-load-resources.md](../05-integration/17-load-resources.md).
 
 The raw text includes the full outer `<noembed name="…">…</noembed>` block.
 Your backend, build step, or inline HTML provides the map; Jslade parses and compiles when

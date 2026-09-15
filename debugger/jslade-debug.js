@@ -16,8 +16,16 @@
  */
 
 import { createDebugUI, esc } from './jslade-debug.ui.js'
-
-const MAX_LOG = 200
+import {
+    capBuffer,
+    DEBUG_MAX_LOG,
+    groupByChannel,
+    loadPersistedState,
+    persistStorageKey,
+    serializePersistedState,
+    subscribersForChannel,
+    wireScopeLabel,
+} from './debug-lib.js'
 
 // Proprietà DOM non interessanti per il pannello "this"
 const DOM_PROPS = new Set([
@@ -68,8 +76,9 @@ export function attachDebug(J) {
     // ── Stato ────────────────────────────────────────────────────────────
     const instances = [] // entry { _id, template, container, state, instance }
     const instanceMap = new Map() // _id → entry
-    const channelLog = [] // { channel, payload, time }
-    const subscriptions = new Map() // _id → Set<channel>
+    const channelLog = [] // { channel, payload, time, local }
+    const subscribeLog = [] // { channel, local, time, instanceId, template }
+    const resourceLog = [] // { type, src, status, time }
     const renderTimes = [] // { name, ms }
     const directives = [] // { name, type }
 
@@ -85,18 +94,10 @@ export function attachDebug(J) {
     }
 
     // ── Persistenza ──────────────────────────────────────────────────────
-    const STORAGE_KEY = 'jslade_debug_' + location.pathname.replace(/[^a-zA-Z0-9]/g, '_')
+    const STORAGE_KEY = persistStorageKey(location.pathname)
     function saveState() {
         try {
-            localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify({
-                    isOpen: uiState.isOpen,
-                    activeTab: uiState.activeTab,
-                    expandedChannels: uiState.expandedChannels,
-                    panelHeight: uiState.panelHeight,
-                })
-            )
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(serializePersistedState(uiState)))
         } catch (e) {
             /* ignore */
         }
@@ -104,14 +105,15 @@ export function attachDebug(J) {
     function loadState() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY)
-            if (!raw) return
-            const s = JSON.parse(raw)
-            if (typeof s.isOpen === 'boolean') uiState.isOpen = s.isOpen
-            if (s.activeTab) uiState.activeTab = s.activeTab
-            if (s.expandedChannels) uiState.expandedChannels = s.expandedChannels
-            if (typeof s.panelHeight === 'number' && s.panelHeight >= 15 && s.panelHeight <= 80) {
-                uiState.panelHeight = s.panelHeight
-            }
+            Object.assign(
+                uiState,
+                loadPersistedState(raw, {
+                    isOpen: uiState.isOpen,
+                    activeTab: uiState.activeTab,
+                    expandedChannels: uiState.expandedChannels,
+                    panelHeight: uiState.panelHeight,
+                })
+            )
         } catch (e) {
             /* ignore */
         }
@@ -139,7 +141,6 @@ export function attachDebug(J) {
             if (i !== -1) instances.splice(i, 1)
         }
         instanceMap.delete(instance._id)
-        subscriptions.delete(instance._id)
         delete uiState.expandedTree[instance._id]
         delete uiState.expandedInfo[instance._id]
         scheduleRefresh()
@@ -167,14 +168,27 @@ export function attachDebug(J) {
         ;(J._hooks[type] = J._hooks[type] || []).push(fn)
     }
 
-    on('message', ({ channel, value, time }) => {
-        channelLog.push({ channel, payload: value, time })
-        if (channelLog.length > MAX_LOG) channelLog.shift()
+    on('message', ({ channel, value, time, local }) => {
+        capBuffer(channelLog, { channel, payload: value, time, local: !!local })
+        scheduleRefresh()
+    })
+    on('subscribe', ({ channel, local, time, instance }) => {
+        const instanceId = instance && (instance._id != null ? instance._id : instance.id)
+        capBuffer(subscribeLog, {
+            channel,
+            local: !!local,
+            time,
+            instanceId: instanceId != null ? instanceId : null,
+            template: instance && instance.template ? instance.template : null,
+        })
+        scheduleRefresh()
+    })
+    on('resource', (entry) => {
+        capBuffer(resourceLog, entry)
         scheduleRefresh()
     })
     on('render', ({ name, ms, instance }) => {
-        renderTimes.push({ name, ms })
-        if (renderTimes.length > MAX_LOG) renderTimes.shift()
+        capBuffer(renderTimes, { name, ms })
         trackTree(instance)
         scheduleRefresh()
     })
@@ -317,6 +331,7 @@ export function attachDebug(J) {
     function renderActiveTab() {
         if (uiState.activeTab === 'components') renderComponents()
         else if (uiState.activeTab === 'wirebus') renderWirebus()
+        else if (uiState.activeTab === 'resources') renderResources()
         else if (uiState.activeTab === 'perf') renderPerf()
         else if (uiState.activeTab === 'templates') renderTemplates()
         else if (uiState.activeTab === 'directives') renderDirectives()
@@ -437,6 +452,16 @@ export function attachDebug(J) {
             return { _error: 'Could not serialize state: ' + err.message }
         }
     }
+    function wireSubscriptionsFor(id) {
+        const subs = []
+        for (let i = 0; i < subscribeLog.length; i++) {
+            const s = subscribeLog[i]
+            if (s.instanceId !== id) continue
+            subs.push(wireScopeLabel(s.local) + "('" + s.channel + "')")
+        }
+        return subs
+    }
+
     function buildStateJson(entry) {
         return JSON.stringify(
             {
@@ -448,6 +473,7 @@ export function attachDebug(J) {
                         ? entry.instance.parent.template + ' #' + entry.instance.parent._id
                         : null,
                 children: entry.instance ? entry.instance.children.map((c) => c.template + ' #' + c._id) : [],
+                wireSubscriptions: wireSubscriptionsFor(entry._id),
                 state: snapshotState(entry.state),
             },
             null,
@@ -461,6 +487,9 @@ export function attachDebug(J) {
             obj._id = instance._id
             obj.template = instance.template
             obj._hostMode = instance._hostMode
+            if (typeof instance.wire === 'function') obj.wire = '[function]'
+            if (typeof instance.localWire === 'function') obj.localWire = '[function]'
+            if (typeof instance.loadResources === 'function') obj.loadResources = '[function]'
             if (typeof instance.find === 'function') obj.find = '[function]'
             if (typeof instance.findAll === 'function') obj.findAll = '[function]'
             if (typeof instance.unmount === 'function') obj.unmount = '[function]'
@@ -481,38 +510,63 @@ export function attachDebug(J) {
         return JSON.stringify(obj, null, 2)
     }
 
+    function formatPayload(value) {
+        if (value == null) return '(no payload)'
+        if (typeof value === 'string') return value
+        try {
+            return JSON.stringify(value)
+        } catch {
+            return String(value)
+        }
+    }
+
+    function wireScopeBadge(local) {
+        const scope = wireScopeLabel(local)
+        const cls = local ? 'jslade-debug-badge--local' : 'jslade-debug-badge--wire'
+        return `<span class="jslade-debug-badge ${cls}">${scope}</span>`
+    }
+
     function renderWirebus() {
-        if (channelLog.length === 0) {
-            ui.renderEmpty('wirebus', 'No messages yet.')
+        if (channelLog.length === 0 && subscribeLog.length === 0) {
+            ui.renderEmpty('wirebus', 'No Wire activity yet — use wire() or localWire().send().')
             return
         }
-        const groups = {}
-        channelLog.forEach((e) => {
-            ;(groups[e.channel] = groups[e.channel] || []).push(e)
-        })
+        const groups = groupByChannel(channelLog)
         const html = Object.keys(groups)
             .sort()
             .map((ch) => {
                 const msgs = groups[ch]
                 const open = !!uiState.expandedChannels[ch]
+                const subs = subscribersForChannel(subscribeLog, ch)
+                const subHtml = subs.length
+                    ? `<div class="jslade-debug-wirebus-row2">` +
+                      subs
+                          .map((s) => {
+                              const label =
+                                  s.template && s.instanceId != null
+                                      ? esc(s.template) + ' #' + s.instanceId
+                                      : 'anonymous'
+                              if (s.instanceId != null) {
+                                  return (
+                                      `<button type="button" class="jslade-debug-recv-badge" data-action="highlight-instance" data-id="${s.instanceId}">` +
+                                      `${wireScopeBadge(s.local)} ${label}</button>`
+                                  )
+                              }
+                              return `<span class="jslade-debug-recv-badge is-muted">${wireScopeBadge(s.local)} ${label}</span>`
+                          })
+                          .join('') +
+                      `</div>`
+                    : ''
                 const recent = msgs
                     .slice(-20)
                     .reverse()
                     .map((e) => {
                         const time = new Date(e.time).toLocaleTimeString()
-                        let payload
-                        if (e.payload == null) payload = '(no payload)'
-                        else if (typeof e.payload === 'string') payload = e.payload
-                        else {
-                            try {
-                                payload = JSON.stringify(e.payload)
-                            } catch {
-                                payload = String(e.payload)
-                            }
-                        }
+                        const payload = formatPayload(e.payload)
                         return (
                             `<div class="jslade-debug-wirebus-msg"><div class="jslade-debug-wirebus-row1">` +
                             `<span style="color:#888;font-size:9px">${esc(time)}</span> ` +
+                            wireScopeBadge(e.local) +
                             `<span class="val">${esc(payload.slice(0, 100))}</span></div></div>`
                         )
                     })
@@ -521,13 +575,42 @@ export function attachDebug(J) {
                     `<div class="jslade-debug-channel">` +
                     `<div class="jslade-debug-channel-header" data-action="toggle-channel" data-channel="${esc(ch)}">` +
                     `<span class="jslade-debug-toggle${open ? '' : ' collapsed'}">${open ? '▼' : '▶'}</span>` +
-                    `<span class="name">${esc(ch)}</span> <span class="val">${msgs.length} msgs</span>` +
+                    `<span class="name">${esc(ch)}</span> <span class="val">${msgs.length} msgs · ${subs.length} recv</span>` +
                     `</div>` +
-                    `<div class="jslade-debug-channel-body"${open ? '' : ' hidden'}>${recent}</div></div>`
+                    subHtml +
+                    `<div class="jslade-debug-channel-body"${open ? '' : ' hidden'}>${recent || '<div class="jslade-debug-empty">No sends yet — subscribers only.</div>'}</div></div>`
                 )
             })
             .join('')
         ui.setPanelHtml('wirebus', html)
+    }
+
+    function renderResources() {
+        if (resourceLog.length === 0) {
+            ui.renderEmpty('resources', 'No resources loaded yet — use loadResources().')
+            return
+        }
+        const recent = resourceLog
+            .slice()
+            .reverse()
+            .slice(0, 50)
+            .map((e) => {
+                const time = new Date(e.time).toLocaleTimeString()
+                return (
+                    `<div class="jslade-debug-resource">` +
+                    `<span style="color:#888;font-size:9px">${esc(time)}</span> ` +
+                    `<span class="jslade-debug-badge jslade-debug-badge--resource">${esc(e.status || 'load')}</span> ` +
+                    `<span class="jslade-debug-badge jslade-debug-badge--type">${esc(e.type)}</span> ` +
+                    `<span class="val">${esc(e.src)}</span>` +
+                    `</div>`
+                )
+            })
+            .join('')
+        ui.setPanelHtml(
+            'resources',
+            `<div class="jslade-debug-row"><span class="name">Recent loads</span> <span class="highlight">${resourceLog.length}</span> (max ${DEBUG_MAX_LOG})</div>` +
+                recent
+        )
     }
 
     function renderPerf() {
@@ -545,6 +628,8 @@ export function attachDebug(J) {
             `<div class="jslade-debug-row"><span class="name">Total renders</span> <span class="highlight">${renderTimes.length}</span> — cumulative <span class="highlight">${total.toFixed(2)} ms</span></div>` +
                 `<div class="jslade-debug-row"><span class="name">Active instances</span> <span class="highlight">${instances.length}</span></div>` +
                 `<div class="jslade-debug-row"><span class="name">Channel messages</span> <span class="highlight">${channelLog.length}</span></div>` +
+                `<div class="jslade-debug-row"><span class="name">Wire subscriptions</span> <span class="highlight">${subscribeLog.length}</span></div>` +
+                `<div class="jslade-debug-row"><span class="name">Resources loaded</span> <span class="highlight">${resourceLog.length}</span></div>` +
                 mem
         )
     }
@@ -593,6 +678,8 @@ export function attachDebug(J) {
     J.debug = {
         instances: () => instances,
         messages: () => channelLog,
+        subscriptions: () => subscribeLog,
+        resources: () => resourceLog,
         timings: () => renderTimes,
         show() {
             uiState.isOpen = true

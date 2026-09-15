@@ -11,7 +11,7 @@ this.loadResources(entries)     // from a live instance — delegates to Jslade
 Both return a **Promise**. Call them from **`mount()`**. This is **not** `Jslade.import()` —
 that API registers component **source** strings (`<noembed>…</noembed>`), not network assets.
 
-Full API notes also live in [components.md](./components.md#external-libraries-loadresources).
+Full API notes also live in [07-script-block.md](../03-component/07-script-block.md).
 Live demo: `playgrounds/sandbox/` → `demo/lazy-widget`.
 
 ---

@@ -5,6 +5,7 @@ on:
         branches: [main]
         paths:
             - 'docs/**'
+            - 'docs/_book.json'
             - 'scripts/sync-wiki.mjs'
             - '.github/workflows/sync-wiki.yml'
     workflow_dispatch:

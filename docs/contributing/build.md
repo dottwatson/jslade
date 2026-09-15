@@ -311,25 +311,25 @@ and README. Generated artifacts you do not list there are never published.
 
 ## GitHub Wiki
 
-Documentation lives in **`docs/`** — that folder is the **only** source of truth.
+User documentation lives in **`docs/`** as a structured book. Chapter order, parts, and
+reading paths are defined in **`docs/_book.json`**.
 
 When you push changes under `docs/` to **`main`**, the workflow
-**`.github/workflows/sync-wiki.yml`** copies those files into the
-[GitHub Wiki](https://github.com/dottwatson/jslade/wiki) automatically. Do not edit wiki
-pages in the GitHub UI; changes would be overwritten on the next sync.
+**`.github/workflows/sync-wiki.yml`** runs **`scripts/sync-wiki.mjs`**, which:
 
-**First time only:** GitHub creates the wiki git repository after the first page exists.
-Open [Create wiki page](https://github.com/dottwatson/jslade/wiki/_new), save any placeholder
-(for example title **Home**, body `init`), then run the workflow below — all later syncs are
-automatic.
+- Flattens chapter files into wiki pages (`01-How-Jslade-Thinks.md`, …)
+- Rewrites relative markdown links to `[[Wiki-Links]]`
+- Generates **`Home.md`** and **`_Sidebar.md`**
+
+Do not edit wiki pages in the GitHub UI — changes are overwritten on the next sync.
 
 To run a sync manually: **Actions → Sync wiki from docs → Run workflow**.
 
-To test locally (optional):
+To preview locally:
 
 ```sh
-git clone https://github.com/dottwatson/jslade.wiki.git /tmp/jslade-wiki
-node scripts/sync-wiki.mjs /tmp/jslade-wiki
+node scripts/sync-wiki.mjs ../wiki-preview
+# inspect wiki-preview/Home.md and _Sidebar.md
 ```
 
 ---

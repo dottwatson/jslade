@@ -9,6 +9,7 @@
 const TAB_DEFS = [
     { key: 'components', label: 'Components' },
     { key: 'wirebus', label: 'WireBus' },
+    { key: 'resources', label: 'Resources' },
     { key: 'perf', label: 'Performance' },
     { key: 'templates', label: 'Templates' },
     { key: 'directives', label: 'Directives' },

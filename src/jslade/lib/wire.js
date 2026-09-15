@@ -50,7 +50,7 @@ export function createWireBus(options = {}) {
             delete this._last[channel]
         },
 
-        subscribe(channel, fn) {
+        subscribe(channel, fn, subscriber) {
             if (wireDebugEnabled) {
                 console.log(
                     '%c[Wire] %csubscribe %c' + channel,
@@ -60,7 +60,7 @@ export function createWireBus(options = {}) {
                 )
             }
             ;(this._channels[channel] = this._channels[channel] || []).push(fn)
-            emitHook('subscribe', { channel, local, time: Date.now() })
+            emitHook('subscribe', { channel, local, time: Date.now(), instance: subscriber || null })
 
             if (channel in this._last) fn(this._last[channel])
 
@@ -96,7 +96,7 @@ export function createWireHandle(bus, channel, caller) {
             bus.forget(name)
         },
         receive(fn) {
-            const off = bus.subscribe(name, fn)
+            const off = bus.subscribe(name, fn, caller)
             if (caller && typeof caller._trackWire === 'function') caller._trackWire(off)
             return off
         },

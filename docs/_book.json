@@ -1,0 +1,133 @@
+{
+    "title": "Jslade Developer Guide",
+    "repoDocsPath": "package/docs",
+    "readingPaths": [
+        {
+            "id": "quick",
+            "title": "Quick start (2–3 hours)",
+            "chapters": [
+                "01-how-jslade-thinks",
+                "04-counter",
+                "05-task-list",
+                "20-why-the-debug-bar",
+                "21-setup-and-workflow",
+                "15-registering-components"
+            ]
+        },
+        {
+            "id": "full",
+            "title": "Full book",
+            "chapters": "all"
+        },
+        {
+            "id": "debug-first",
+            "title": "Debug-first (coming from React/Vue)",
+            "chapters": [
+                "01-how-jslade-thinks",
+                "20-why-the-debug-bar",
+                "21-setup-and-workflow",
+                "22-components-tab",
+                "04-counter",
+                "13-wire-localwire",
+                "23-wirebus-tab"
+            ]
+        }
+    ],
+    "sections": [
+        {
+            "id": "preface",
+            "title": "Preface",
+            "chapters": [{ "file": "00-preface.md", "title": "About this book" }]
+        },
+        {
+            "id": "mental-model",
+            "title": "Part I — Mental model",
+            "chapters": [
+                { "file": "01-mental-model/01-how-jslade-thinks.md", "title": "How Jslade thinks" },
+                { "file": "01-mental-model/02-jsd-anatomy.md", "title": "The .jsd file" },
+                { "file": "01-mental-model/03-boot-sequence.md", "title": "Boot sequence" }
+            ]
+        },
+        {
+            "id": "first-hour",
+            "title": "Part II — Your first hour",
+            "chapters": [
+                { "file": "02-first-hour/04-counter.md", "title": "Tutorial: counter" },
+                { "file": "02-first-hour/05-task-list.md", "title": "Tutorial: task list" },
+                { "file": "02-first-hour/06-cart-tutorial.md", "title": "Tutorial: cart line item" }
+            ]
+        },
+        {
+            "id": "component",
+            "title": "Part III — Component anatomy",
+            "chapters": [
+                { "file": "03-component/07-script-block.md", "title": "Script block" },
+                { "file": "03-component/08-template-language.md", "title": "Template language" },
+                { "file": "03-component/09-event-directives.md", "title": "Event directives" },
+                { "file": "03-component/10-scoped-css.md", "title": "Scoped CSS" },
+                { "file": "03-component/11-javascript-subset.md", "title": "JavaScript subset" }
+            ]
+        },
+        {
+            "id": "composition",
+            "title": "Part IV — Composition",
+            "chapters": [
+                { "file": "04-composition/12-component-tree.md", "title": "Component tree" },
+                { "file": "04-composition/13-wire-localwire.md", "title": "Wire and localWire" },
+                { "file": "04-composition/14-instance-api.md", "title": "Instance API" }
+            ]
+        },
+        {
+            "id": "integration",
+            "title": "Part V — Integration",
+            "chapters": [
+                { "file": "05-integration/15-registering-components.md", "title": "Registering components" },
+                { "file": "05-integration/16-props-from-backend.md", "title": "Props from the backend" },
+                { "file": "05-integration/17-load-resources.md", "title": "Lazy JS/CSS (loadResources)" },
+                { "file": "05-integration/18-csp-security-performance.md", "title": "CSP, security, performance" }
+            ]
+        },
+        {
+            "id": "extending",
+            "title": "Part VI — Extending",
+            "chapters": [
+                { "file": "06-extending/19-custom-directives.md", "title": "Custom directives" }
+            ]
+        },
+        {
+            "id": "debug-bar",
+            "title": "Part VII — Debug bar",
+            "chapters": [
+                { "file": "07-debug-bar/20-why-the-debug-bar.md", "title": "Why the debug bar" },
+                { "file": "07-debug-bar/21-setup-and-workflow.md", "title": "Setup and workflow" },
+                { "file": "07-debug-bar/22-components-tab.md", "title": "Components tab" },
+                { "file": "07-debug-bar/23-wirebus-tab.md", "title": "WireBus tab" },
+                { "file": "07-debug-bar/24-resources-and-performance.md", "title": "Resources and Performance tabs" },
+                { "file": "07-debug-bar/25-templates-and-directives.md", "title": "Templates and Directives tabs" },
+                { "file": "07-debug-bar/26-programmatic-api.md", "title": "Programmatic API" },
+                { "file": "07-debug-bar/27-architecture-and-customization.md", "title": "Architecture and customization" }
+            ]
+        },
+        {
+            "id": "troubleshooting",
+            "title": "Part VIII — Troubleshooting",
+            "chapters": [
+                { "file": "08-troubleshooting/28-common-errors-faq.md", "title": "Common errors and FAQ" },
+                { "file": "08-troubleshooting/29-local-development.md", "title": "Local development" }
+            ]
+        },
+        {
+            "id": "appendices",
+            "title": "Appendices",
+            "chapters": [
+                { "file": "appendices/A-cheatsheet.md", "title": "Cheatsheet" },
+                { "file": "appendices/G-debug-bar-quick-reference.md", "title": "Debug bar quick reference" }
+            ]
+        },
+        {
+            "id": "contributing",
+            "title": "Contributors",
+            "chapters": [{ "file": "contributing/build.md", "title": "Building the engine", "wiki": "Build" }]
+        }
+    ]
+}

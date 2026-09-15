@@ -48,7 +48,7 @@ DOM** — no virtual DOM, no build step required for your components.
 - **Heavy async UI** — the script subset has no `async`/`await`; put that logic in plain JS
   modules and call it from `mount()`, or lazy-load a UMD with `this.loadResources()`.
 
-For deep dives see [docs/getting-started.md](./docs/getting-started.md).
+For deep dives see the [Developer Guide](./docs/README.md).
 
 ---
 
@@ -224,11 +224,11 @@ mount(function () {
 | `@if` / `@else` | Conditional blocks |
 | `@foreach` | Loop over `items` |
 | `$loop.last` | Loop metadata |
-| `@click` / `@change` / `@input` / … | DOM events — CSP-safe (see [docs/components.md](./docs/components.md#event-directives)) |
+| `@click` / `@change` / `@input` / … | DOM events — CSP-safe (see [Event directives](./docs/03-component/09-event-directives.md)) |
 | `{{ }}` | Output escaped text |
 
 Child components: `@component('other/name', { key: id, …props })`.  
-More syntax: [docs/components.md](./docs/components.md).
+More syntax: [Template language](./docs/03-component/08-template-language.md).
 
 ---
 
@@ -264,7 +264,7 @@ for (const file of fs.readdirSync('components', { recursive: true })) {
 }
 ```
 
-Details: [docs/registering-components.md](./docs/registering-components.md).
+Details: [Registering components](./docs/05-integration/15-registering-components.md).
 
 ### 2. In-page `<noembed>` (prototypes & playgrounds)
 
@@ -370,7 +370,7 @@ Jslade.directive('panel', { block: true }, (ctx) => {
 `ctx.wrap(openHtml, closeHtml)` takes two HTML strings — not a tag name or `children`.
 Block helpers: `ctx.wrap`, `ctx.when`, `ctx.loop`.  
 Built-in: `@if`, `@elseif`, `@else`, `@foreach`, `@for`, `@component`, `@js`, and
-[49 DOM event directives](./docs/components.md#event-directives) (`@click`, `@input`, `@dragover`, …).
+[49 DOM event directives](./docs/03-component/09-event-directives.md) (`@click`, `@input`, `@dragover`, …).
 
 ---
 
@@ -391,7 +391,7 @@ this.loadResources([
 
 `global: 'L'` means “after load, `window.L` must exist” — it does not rename the library.
 This is not `Jslade.import()` (that registers component source). Guide:
-[docs/load-resources.md](./docs/load-resources.md).
+[Lazy JS/CSS guide](./docs/05-integration/17-load-resources.md).
 
 ---
 
@@ -399,12 +399,10 @@ This is not `Jslade.import()` (that registers component source). Guide:
 
 | Guide | Contents |
 |---|---|
-| [docs/getting-started.md](./docs/getting-started.md) | Quick start, first component |
-| [docs/components.md](./docs/components.md) | Lifecycle, state, parent/child tree, `wire` / `localWire` |
-| [docs/load-resources.md](./docs/load-resources.md) | Lazy JS/CSS (`loadResources`) vs `use()` |
-| [docs/registering-components.md](./docs/registering-components.md) | Loading from backend, fetch, scanDOM |
-| [docs/build.md](./docs/build.md) | Building the package (contributors) |
-| [docs/debug-readme.md](./docs/debug-readme.md) | Dev debug bar |
+| [docs/README.md](./docs/README.md) | **Developer Guide** — full book index |
+| [Part I — Mental model](./docs/01-mental-model/01-how-jslade-thinks.md) | How Jslade thinks |
+| [Part VII — Debug bar](./docs/07-debug-bar/20-why-the-debug-bar.md) | Development debug bar (8 chapters) |
+| [Contributors — Build](./docs/contributing/build.md) | Building the package |
 
 Try the sandbox: `npm install && npm run build && npm run dev` →
 [http://localhost:5173/playgrounds/sandbox/](http://localhost:5173/playgrounds/sandbox/).

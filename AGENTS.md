@@ -19,8 +19,8 @@ You are working on the **`jslade` npm package** — a dependency-free client-sid
 
 **Engine change:** `npm run build`
 
-**Docs change:** edit `docs/`; keep `README.md` concise. Public `loadResources` docs:
-`docs/load-resources.md` + the section in `docs/components.md`.
+**Docs change:** edit `docs/` (book layout + `docs/_book.json`); keep `README.md` concise.
+Wiki sync: `node scripts/sync-wiki.mjs <wiki-clone>`.
 
 **Sandbox component:** edit `playgrounds/sandbox/components/**/*.jsd`; reload via `npm run dev`
 

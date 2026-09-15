@@ -1,4 +1,4 @@
-export const hooks = { message: [], subscribe: [], render: [], instance: [], directive: [] }
+export const hooks = { message: [], subscribe: [], render: [], instance: [], directive: [], resource: [] }
 
 export function emitHook(type, payload) {
     const list = hooks[type]
