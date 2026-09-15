@@ -518,13 +518,17 @@ server map must win.
 ## Introspection and troubleshooting
 
 ```js
+Jslade.hasComponent('cart/item') // registered or compiled
 Jslade.list()                    // compiled component names only
 Jslade.instances()               // snapshot of live instances by template name
 document.querySelector('jslade[name="cart/item"]').component
 ```
 
-Names still held as lazy source in memory (registered via **`import()`** but not yet
-compiled) do **not** appear in **`list()`** until first use.
+**`hasComponent(name)`** is `true` when the definition is in memory — via **`import()`**,
+**`scanDOM()`**, or already compiled. It is `false` for unknown names.
+
+Names still held as lazy source (registered but not yet compiled) appear in
+**`hasComponent()`** but **not** in **`list()`** until first use.
 
 | Symptom | Likely cause |
 |---|---|

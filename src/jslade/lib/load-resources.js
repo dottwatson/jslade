@@ -5,6 +5,7 @@
 
 import { _devLog } from './dev-log.js'
 import { emitHook } from './hooks.js'
+import { runBefore } from './events.js'
 
 const TYPES = { script: true, module: true, style: true }
 
@@ -302,6 +303,11 @@ export function createLoadResources(options) {
         const win = getWindow()
         const resolved = resolveSrc(entry.src, win)
         const cacheKey = entry.type + '\0' + resolved
+        const basePayload = { type: entry.type, src: resolved, time: Date.now() }
+
+        if (runBefore('resource:load', basePayload) === false) {
+            return Promise.reject(resourceError('resource:load blocked for ' + entry.src))
+        }
 
         if (typeof entry.test === 'function' && entry.test()) {
             logDev('test skip', entry.type, resolved)

@@ -8,9 +8,29 @@ One-page reference. Narrative guides live in Parts I–VIII.
 
 ```js
 Jslade.import({ 'name': '<noembed …>…</noembed>' })
+Jslade.hasComponent('name')       // registered or compiled
 Jslade.start()                    // required
 Jslade.start({ dev: true, root: el })
+await Jslade.startAsync()         // when before() handlers are async
 ```
+
+---
+
+## Engine events
+
+```js
+Jslade.before('component:request', async ({ name, state }) => { … })
+Jslade.after('mount', ({ instance }) => { … })
+Jslade.once('compile', ({ name }) => { … })
+Jslade.off('mount', fn)
+
+// before: return false (===) blocks the action
+```
+
+Events: `component:request`, `compile`, `mount`, `unmount`, `resource:load`,
+`directive:register`, `wire:send`, `wire:subscribe`, `wire:unsubscribe`.
+
+Details: [Engine events](../05-integration/19-engine-events.md).
 
 ---
 

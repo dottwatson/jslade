@@ -1,4 +1,5 @@
 import { emitHook } from './hooks.js'
+import { runBefore, runAfter } from './events.js'
 import { getCurrentInstance } from './current-instance.js'
 
 let wireDebugEnabled = false
@@ -19,6 +20,9 @@ export function createWireBus(options = {}) {
         _last: {},
 
         _publish(channel, value) {
+            const payload = { channel, value, local, time: Date.now() }
+            if (runBefore('wire:send', payload) === false) return
+
             this._last[channel] = value
             if (wireDebugEnabled) {
                 console.log(
@@ -29,7 +33,7 @@ export function createWireBus(options = {}) {
                     value
                 )
             }
-            emitHook('message', { channel, value, local, time: Date.now() })
+            emitHook('message', payload)
             const subs = this._channels[channel]
             if (!subs) return
             subs.slice().forEach(function (fn) {
@@ -51,6 +55,11 @@ export function createWireBus(options = {}) {
         },
 
         subscribe(channel, fn, subscriber) {
+            const payload = { channel, local, time: Date.now(), instance: subscriber || null }
+            if (runBefore('wire:subscribe', payload) === false) {
+                return function noop() {}
+            }
+
             if (wireDebugEnabled) {
                 console.log(
                     '%c[Wire] %csubscribe %c' + channel,
@@ -60,17 +69,28 @@ export function createWireBus(options = {}) {
                 )
             }
             ;(this._channels[channel] = this._channels[channel] || []).push(fn)
-            emitHook('subscribe', { channel, local, time: Date.now(), instance: subscriber || null })
+            emitHook('subscribe', payload)
 
             if (channel in this._last) fn(this._last[channel])
 
             const channels = this._channels
+            const self = this
             return function unsubscribe() {
+                const offPayload = {
+                    channel,
+                    local,
+                    time: Date.now(),
+                    instance: subscriber || null,
+                }
+                if (runBefore('wire:unsubscribe', offPayload) === false) return
+
                 const subs = channels[channel]
                 if (!subs) return
                 const index = subs.indexOf(fn)
                 if (index !== -1) subs.splice(index, 1)
                 if (subs.length === 0) delete channels[channel]
+
+                runAfter('wire:unsubscribe', offPayload)
             }
         },
 

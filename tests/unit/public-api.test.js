@@ -26,6 +26,13 @@ describe('public API exports', () => {
         assert.equal(typeof Jslade.directive, 'function')
         assert.equal(typeof Jslade.wire, 'function')
         assert.equal(typeof Jslade.loadResources, 'function')
+        assert.equal(typeof Jslade.before, 'function')
+        assert.equal(typeof Jslade.after, 'function')
+        assert.equal(typeof Jslade.once, 'function')
+        assert.equal(typeof Jslade.off, 'function')
+        assert.equal(typeof Jslade.startAsync, 'function')
+        assert.equal(typeof Jslade.renderToAsync, 'function')
+        assert.equal(typeof Jslade.hasComponent, 'function')
     })
 
     it('exports compile helpers', () => {

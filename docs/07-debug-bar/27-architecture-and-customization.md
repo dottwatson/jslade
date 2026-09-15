@@ -2,16 +2,19 @@
 
 ## How it hooks into Jslade
 
-`jslade-debug.js` registers listeners on **`Jslade._hooks`** when `attachDebug(Jslade)` runs:
+`jslade-debug.js` registers listeners on **`Jslade._hooks`** when `attachDebug(Jslade)` runs.
 
-| Hook | Purpose |
-|------|---------|
-| `message` | Wire `send` (channel, payload, timestamp, `local`) |
-| `subscribe` | `receive()` registrations |
-| `resource` | `loadResources` activity |
-| `render` | Per-instance render timing |
-| `instance` | Create / unmount lifecycle |
-| `directive` | Registered directives (name, type) |
+Integrators should prefer the public API — **`Jslade.before()` / `Jslade.after()`** —
+documented in [Engine events](../05-integration/19-engine-events.md).
+
+| Legacy hook (`_hooks`) | Public `after(…)` event |
+|------------------------|-------------------------|
+| `message` | `wire:send` |
+| `subscribe` | `wire:subscribe` |
+| `resource` | `resource:load` |
+| `directive` | `directive:register` |
+| `render` | _(internal — no public alias yet)_ |
+| `instance` | Use `mount` / `unmount` events |
 
 No monkey-patching — the engine emits; the bar listens.
 

@@ -16,6 +16,8 @@ import { createLifecycle } from './lifecycle/lifecycle.js'
 import { createAutostart } from './lifecycle/autostart.js'
 import { _devLog } from './lib/dev-log.js'
 import { emitHook, hooks as _hooks } from './lib/hooks.js'
+import { before, after, once, off, runBefore } from './lib/events.js'
+import { tagComponentOrigin, hasComponent as hasComponentRegistered } from './lib/component-meta.js'
 import { openPublicWire, getWireDebug, setWireDebug } from './lib/wire.js'
 import { runWithCurrentInstance } from './lib/current-instance.js'
 import { snapshotLiveInstancesByTemplate, formatRuntimeError } from './lib/instance-registry.js'
@@ -36,9 +38,11 @@ const autostart = createAutostart(Jslade)
 
 Object.assign(Jslade, {
     directive(directiveName, handlerOrOpts, fn) {
-        directiveRegistry.register(directiveName, handlerOrOpts, fn)
         const isBlock = handlerOrOpts && typeof handlerOrOpts === 'object' && handlerOrOpts.block === true
-        emitHook('directive', { name: directiveName, type: isBlock ? 'block' : 'inline' })
+        const payload = { name: directiveName, type: isBlock ? 'block' : 'inline' }
+        if (runBefore('directive:register', payload) === false) return this
+        directiveRegistry.register(directiveName, handlerOrOpts, fn)
+        emitHook('directive', payload)
         return this
     },
 
@@ -112,9 +116,17 @@ Object.assign(Jslade, {
         return autostart.start(opts)
     },
 
+    startAsync(opts) {
+        return autostart.startAsync(opts)
+    },
+
     /** Mounts `<jslade>` placeholders without reloading definitions. */
     mountAll(root) {
         return autostart.mountPlaceholders(root)
+    },
+
+    mountAllAsync(root) {
+        return autostart.mountPlaceholdersAsync(root)
     },
 
     /** Former name of `start()`, kept for existing pages. */
@@ -141,8 +153,10 @@ Object.assign(Jslade, {
         if (!def) return
         const compiledTemplate = compileTemplateDef(name, def, directiveRegistry, Jslade)
         if (compiledTemplate) {
+            if (def.origin) compiledTemplate.origin = def.origin
             this.compiledComponents[name] = compiledTemplate
             delete this._sourceComponents[name]
+            this._removeDomTemplate(name)
         }
     },
 
@@ -162,12 +176,21 @@ Object.assign(Jslade, {
         return lifecycle.stripChildMarkers(lifecycle.renderComponentTree(templateName, renderData ?? {}).html)
     },
 
-    renderTo(container, templateName, renderData, parentRef) {
-        return lifecycle.renderTo(container, templateName, renderData, parentRef)
+    renderTo(container, templateName, renderData, parentRef, options) {
+        return lifecycle.renderTo(container, templateName, renderData, parentRef, options)
+    },
+
+    renderToAsync(container, templateName, renderData, parentRef, options) {
+        return lifecycle.renderToAsync(container, templateName, renderData, parentRef, options)
     },
 
     list() {
         return Object.keys(this.compiledComponents)
+    },
+
+    /** True when the name is registered (import / scanDOM) or already compiled. */
+    hasComponent(name) {
+        return hasComponentRegistered(this, name)
     },
 
     instances() {
@@ -193,10 +216,33 @@ Object.assign(Jslade, {
                 const def = self._extractTemplateDefFromSource(el.outerHTML)
                 if (def) {
                     def.rawText = el.outerHTML
+                    tagComponentOrigin(def, 'dom')
                     self._sourceComponents[name] = def
                 }
             }
         })
+    },
+
+    _removeDomTemplate(name) {
+        if (typeof document === 'undefined') return
+        const el = document.querySelector(`${COMPONENT_DEF_TAG}[name="${name}"]`)
+        if (el) el.remove()
+    },
+
+    before(event, fn) {
+        return before(event, fn)
+    },
+
+    after(event, fn) {
+        return after(event, fn)
+    },
+
+    once(event, fn) {
+        return once(event, fn)
+    },
+
+    off(event, fn) {
+        return off(event, fn)
     },
 
     _extractTemplateDefFromSource(sourceText) {

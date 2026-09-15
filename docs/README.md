@@ -61,6 +61,7 @@ to the [GitHub Wiki](https://github.com/dottwatson/jslade/wiki) via `scripts/syn
 - [Props from the backend](./05-integration/16-props-from-backend.md)
 - [Lazy JS/CSS (`loadResources`)](./05-integration/17-load-resources.md)
 - [CSP, security, performance](./05-integration/18-csp-security-performance.md)
+- [Engine events](./05-integration/19-engine-events.md)
 
 ### Part VI — Extending
 

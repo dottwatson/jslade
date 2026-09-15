@@ -2,9 +2,10 @@
  * Mount pipeline: scan for definitions, compile on demand, mount <jslade> placeholders.
  */
 import { _devLog } from '../lib/dev-log.js'
-import { COMPONENT_DEF_TAG } from '../lib/constants.js'
 import { parseObjectLiteral } from '../ast/parse-expr.js'
 import { evalExpression } from '../ast/eval-expr.js'
+import { tagComponentOrigin } from '../lib/component-meta.js'
+import { requestComponentSync, requestComponent } from '../lib/component-pipeline.js'
 
 const MOUNT_TAG = 'jslade'
 const STYLE_ID = 'jslade-mount-style'
@@ -68,9 +69,13 @@ export function createAutostart(Jslade) {
 
             if (typeof value === 'string') {
                 def = Jslade._extractTemplateDefFromSource(value)
-                if (def) def.rawText = value.trim()
+                if (def) {
+                    def.rawText = value.trim()
+                    tagComponentOrigin(def, 'import')
+                }
             } else if (value && typeof value === 'object') {
                 def = { ...value }
+                tagComponentOrigin(def, 'inline')
             }
             if (!def) continue
 
@@ -90,27 +95,44 @@ export function createAutostart(Jslade) {
         if (hasDom()) Jslade.scanDOM()
     }
 
-    function ensureCompiled(name) {
+    function ensureCompiled(name, via = 'internal') {
         if (Jslade.compiledComponents[name]) return true
-        const def = Jslade._sourceComponents[name]
-        if (def) {
-            Jslade.compile(name, def)
-            if (Jslade.compiledComponents[name]) {
-                delete Jslade._sourceComponents[name]
-                removeDomTemplate(name)
-                return true
+        return requestComponentSync(Jslade, name, via)
+    }
+
+    async function ensureCompiledAsync(name, via = 'internal') {
+        if (Jslade.compiledComponents[name]) return true
+        return requestComponent(Jslade, name, via)
+    }
+
+    function mountPlaceholders(root, options) {
+        if (!hasDom()) return []
+
+        const scope = root || document
+        const mounted = []
+        const awaitAsync = !!(options && options.awaitAsync)
+
+        for (const element of scope.querySelectorAll(`${MOUNT_TAG}[name]`)) {
+            if (element.component) continue
+
+            const name = element.getAttribute('name')
+            const props = readProps(element)
+
+            if (awaitAsync) continue
+
+            if (!ensureCompiled(name, 'placeholder')) {
+                _devLog.warn(`[Jslade] <${MOUNT_TAG} name="${name}"> skipped: component not loaded yet.`)
+                continue
             }
+
+            const instance = Jslade.renderTo(element, name, props, null, { via: 'placeholder' })
+            if (instance) mounted.push(instance)
         }
-        return false
+
+        return mounted
     }
 
-    function removeDomTemplate(name) {
-        if (!hasDom()) return
-        const el = document.querySelector(`${COMPONENT_DEF_TAG}[name="${name}"]`)
-        if (el) el.remove()
-    }
-
-    function mountPlaceholders(root) {
+    async function mountPlaceholdersAsync(root) {
         if (!hasDom()) return []
 
         const scope = root || document
@@ -120,12 +142,14 @@ export function createAutostart(Jslade) {
             if (element.component) continue
 
             const name = element.getAttribute('name')
-            if (!ensureCompiled(name)) {
+            const props = readProps(element)
+
+            if (!(await ensureCompiledAsync(name, 'placeholder'))) {
                 _devLog.warn(`[Jslade] <${MOUNT_TAG} name="${name}"> skipped: component not loaded yet.`)
                 continue
             }
 
-            const instance = Jslade.renderTo(element, name, readProps(element))
+            const instance = await Jslade.renderToAsync(element, name, props, null, { via: 'placeholder' })
             if (instance) mounted.push(instance)
         }
 
@@ -144,5 +168,25 @@ export function createAutostart(Jslade) {
         return mountPlaceholders(opts.root)
     }
 
-    return { start, mountPlaceholders, ensureCompiled, importTemplates }
+    async function startAsync(options) {
+        const opts = options || {}
+        if (opts.dev === true) Jslade.dev = true
+        if (opts.showChannels) Jslade.wireDebug = true
+
+        loadDefinitions()
+
+        if (opts.mount === false) return []
+        injectMountStyle()
+        return mountPlaceholdersAsync(opts.root)
+    }
+
+    return {
+        start,
+        startAsync,
+        mountPlaceholders,
+        mountPlaceholdersAsync,
+        ensureCompiled,
+        ensureCompiledAsync,
+        importTemplates,
+    }
 }

@@ -1,6 +1,8 @@
 import { EVENT_ATTRIBUTE_PREFIX, MAX_CONSECUTIVE_RENDERS } from '../lib/constants.js'
 import { _devLog } from '../lib/dev-log.js'
 import { emitHook } from '../lib/hooks.js'
+import { getComponentMeta } from '../lib/component-meta.js'
+import { emitMountBeforeSync, emitMountAfterSync, emitUnmountBeforeSync, emitUnmountAfterSync } from '../lib/component-pipeline.js'
 import {
     attachScriptMethodsToInstance,
     formatRuntimeError,
@@ -176,6 +178,15 @@ export class Component {
 
     unmount() {
         if (this._unmounted) return
+
+        const meta = getComponentMeta(this._api, this.name)
+        const unmountPayload = {
+            name: this.name,
+            instance: this,
+            ...meta,
+        }
+        if (emitUnmountBeforeSync(unmountPayload) === false) return
+
         this._unmounted = true
 
         emitHook('instance', { action: 'unmount', instance: this })
@@ -202,6 +213,8 @@ export class Component {
             const index = siblings.indexOf(this)
             if (index !== -1) siblings.splice(index, 1)
         }
+
+        emitUnmountAfterSync(unmountPayload)
     }
 
     renderTo(target) {
@@ -367,6 +380,17 @@ export class Component {
             return
         }
 
+        const meta = getComponentMeta(owner._api, entry.name)
+        const mountPayload = {
+            name: entry.name,
+            via: 'child',
+            props: entry.props || {},
+            container: element,
+            parent: owner,
+            ...meta,
+        }
+        if (emitMountBeforeSync(mountPayload) === false) return
+
         const child = createComponent({
             id: entry.id,
             name: entry.name,
@@ -378,7 +402,7 @@ export class Component {
             registry,
         })
         owner.children.push(child)
-        created.push(child)
+        created.push({ child, mountPayload })
         Component.adoptChildren(element, tree, child, registry, createComponent, mergeComponentProps, created)
     }
 
@@ -391,8 +415,12 @@ export class Component {
     /** Deepest child first so a parent's mount() sees an initialised subtree. */
     static mountCreated(created) {
         for (let i = created.length - 1; i >= 0; i--) {
-            created[i].bindToDom()
-            created[i].mount()
+            const entry = created[i]
+            const child = entry.child || entry
+            const mountPayload = entry.mountPayload
+            child.bindToDom()
+            child.mount()
+            if (mountPayload) emitMountAfterSync({ ...mountPayload, instance: child })
         }
     }
 

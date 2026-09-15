@@ -86,9 +86,9 @@ ${def.markup || ''}
     }
     function computeSourceLineColumn(source, index) {
         const safeIndex = Math.max(0, Math.min(index == null ? 0 : index, source.length))
-        const before = source.slice(0, safeIndex)
-        const line = before.split('\n').length
-        const lastNl = before.lastIndexOf('\n')
+        const before2 = source.slice(0, safeIndex)
+        const line = before2.split('\n').length
+        const lastNl = before2.lastIndexOf('\n')
         const column = safeIndex - (lastNl === -1 ? 0 : lastNl + 1) + 1
         return { line, column }
     }
@@ -2866,6 +2866,7 @@ ${def.markup || ''}
             text: def.rawText || buildModuleSourceText({ script: scriptSource, markup, scopedStyles, scopeTargets }),
             sourceLines,
             sourceFile: def.sourceFile || null,
+            origin: def.origin || null,
         }
         const templateScript = scriptSource
             ? parseTemplateScript(scriptSource, templateName, sourceLines)
@@ -3613,16 +3614,265 @@ ${def.markup || ''}
         return emitter.toFunctionBody()
     }
 
-    // src/jslade/lib/hooks.js
-    var hooks = { message: [], subscribe: [], render: [], instance: [], directive: [], resource: [] }
-    function emitHook(type, payload) {
-        const list = hooks[type]
-        if (!list) return
+    // src/jslade/lib/events.js
+    var registry = /* @__PURE__ */ Object.create(null)
+    var onceWrappers = /* @__PURE__ */ new WeakMap()
+    function bucket(event) {
+        if (!registry[event]) registry[event] = { before: [], after: [] }
+        return registry[event]
+    }
+    function addListener(event, phase, fn) {
+        bucket(event)[phase].push(fn)
+    }
+    function removeListener(event, phase, fn) {
+        const store = registry[event]
+        if (!store) return
+        const list = store[phase]
+        const index = list.indexOf(fn)
+        if (index !== -1) list.splice(index, 1)
+        const wrapped = onceWrappers.get(fn)
+        if (wrapped) {
+            const wrappedIndex = list.indexOf(wrapped)
+            if (wrappedIndex !== -1) list.splice(wrappedIndex, 1)
+        }
+    }
+    function runPhase(phase, event, payload, options) {
+        const list = registry[event]?.[phase]
+        if (!list || !list.length) return phase === 'before'
+        if (options && options.awaitAsync) return runPhaseAsync(phase, list, payload)
         for (let i = 0; i < list.length; i++) {
             try {
-                list[i](payload)
-            } catch (e) {}
+                const result = list[i](payload)
+                if (result && typeof result.then === 'function') {
+                    throw new Error(
+                        `[Jslade] Async ${phase}("${event}") requires startAsync() or renderToAsync() \u2014 sync start() cannot await hooks.`
+                    )
+                }
+                if (phase === 'before' && result === false) return false
+            } catch (error) {
+                if (error && error.message && error.message.includes('requires startAsync')) throw error
+            }
         }
+        return true
+    }
+    async function runPhaseAsync(phase, list, payload) {
+        for (let i = 0; i < list.length; i++) {
+            try {
+                const result = list[i](payload)
+                const value = result && typeof result.then === 'function' ? await result : result
+                if (phase === 'before' && value === false) return false
+            } catch (_) {}
+        }
+        return true
+    }
+    function runBefore(event, payload, options) {
+        return runPhase('before', event, payload, options)
+    }
+    function runAfter(event, payload, options) {
+        return runPhase('after', event, payload, options)
+    }
+    function before(event, fn) {
+        addListener(event, 'before', fn)
+        return fn
+    }
+    function after(event, fn) {
+        addListener(event, 'after', fn)
+        return fn
+    }
+    function once(event, fn) {
+        const wrapped = function (payload) {
+            removeListener(event, 'after', fn)
+            return fn(payload)
+        }
+        onceWrappers.set(fn, wrapped)
+        addListener(event, 'after', wrapped)
+        return fn
+    }
+    function off(event, fn) {
+        removeListener(event, 'before', fn)
+        removeListener(event, 'after', fn)
+    }
+
+    // src/jslade/lib/hooks.js
+    var hooks = { message: [], subscribe: [], render: [], instance: [], directive: [], resource: [] }
+    var LEGACY_AFTER = {
+        message: 'wire:send',
+        subscribe: 'wire:subscribe',
+        resource: 'resource:load',
+        directive: 'directive:register',
+    }
+    function emitHook(type, payload) {
+        const list = hooks[type]
+        if (list) {
+            for (let i = 0; i < list.length; i++) {
+                try {
+                    list[i](payload)
+                } catch (e) {}
+            }
+        }
+        const eventName = LEGACY_AFTER[type]
+        if (eventName) runAfter(eventName, payload)
+    }
+
+    // src/jslade/lib/component-meta.js
+    function normalizeComponentName(name) {
+        return String(name)
+            .replace(/\\/g, '/')
+            .replace(/^\/+|\/+$/g, '')
+    }
+    function getComponentMeta(api, name) {
+        const key = normalizeComponentName(name)
+        if (!key) {
+            return { state: 'missing', origin: null, sourceFile: null }
+        }
+        const compiled = api.compiledComponents[key]
+        if (compiled) {
+            return {
+                state: 'compiled',
+                origin: compiled.origin || compiled.rawSource?.origin || null,
+                sourceFile: compiled.rawSource?.sourceFile || null,
+            }
+        }
+        const def = api._sourceComponents[key]
+        if (def) {
+            return {
+                state: 'registered',
+                origin: def.origin || null,
+                sourceFile: def.sourceFile || null,
+            }
+        }
+        return {
+            state: 'missing',
+            origin: null,
+            sourceFile: null,
+        }
+    }
+    function hasComponent(api, name) {
+        return getComponentMeta(api, name).state !== 'missing'
+    }
+    function tagComponentOrigin(def, origin) {
+        if (!def || def.origin) return def
+        def.origin = origin
+        return def
+    }
+
+    // src/jslade/lib/component-pipeline.js
+    async function finishRequest(api, name, payload, options) {
+        const allowed = await runBefore('component:request', payload, options)
+        if (allowed === false) {
+            await runAfter('component:request', { ...payload, found: false, blocked: true }, options)
+            return false
+        }
+        if (api.compiledComponents[name]) {
+            await runAfter('component:request', { ...payload, found: true }, options)
+            return true
+        }
+        const def = api._sourceComponents[name]
+        if (def) {
+            const compiled = await compileWithEvents(api, name, def, options)
+            const found = !!compiled
+            await runAfter('component:request', { ...payload, found }, options)
+            return found
+        }
+        await runAfter('component:request', { ...payload, found: false }, options)
+        return false
+    }
+    function requestComponentSync(api, name, via, extra) {
+        const meta = getComponentMeta(api, name)
+        const payload = { name, via, ...meta, ...(extra || {}) }
+        const options = { awaitAsync: false }
+        const allowed = runBefore('component:request', payload, options)
+        if (allowed === false) {
+            runAfter('component:request', { ...payload, found: false, blocked: true }, options)
+            return false
+        }
+        if (api.compiledComponents[name]) {
+            runAfter('component:request', { ...payload, found: true }, options)
+            return true
+        }
+        const def = api._sourceComponents[name]
+        if (def) {
+            const compiled = compileWithEventsSync(api, name, def)
+            const found = !!compiled
+            runAfter('component:request', { ...payload, found }, options)
+            return found
+        }
+        runAfter('component:request', { ...payload, found: false }, options)
+        return false
+    }
+    function requestComponent(api, name, via, extra) {
+        const meta = getComponentMeta(api, name)
+        const payload = { name, via, ...meta, ...(extra || {}) }
+        return finishRequest(api, name, payload, { awaitAsync: true })
+    }
+    function compileWithEventsSync(api, name, def) {
+        const options = { awaitAsync: false }
+        const meta = getComponentMeta(api, name)
+        const payload = {
+            name,
+            origin: def.origin || meta.origin || null,
+            sourceFile: def.sourceFile || meta.sourceFile || null,
+        }
+        const allowed = runBefore('compile', payload, options)
+        if (allowed === false) return null
+        const started = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
+        api.compile(name, def)
+        const compiled = api.compiledComponents[name] || null
+        if (compiled) {
+            const ended = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
+            runAfter(
+                'compile',
+                {
+                    ...payload,
+                    ms: Math.round((ended - started) * 100) / 100,
+                },
+                options
+            )
+        }
+        return compiled
+    }
+    async function compileWithEvents(api, name, def, options) {
+        const meta = getComponentMeta(api, name)
+        const payload = {
+            name,
+            origin: def.origin || meta.origin || null,
+            sourceFile: def.sourceFile || meta.sourceFile || null,
+        }
+        const allowed = await runBefore('compile', payload, options)
+        if (allowed === false) return null
+        const started = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
+        api.compile(name, def)
+        const compiled = api.compiledComponents[name] || null
+        if (compiled) {
+            const ended = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
+            await runAfter(
+                'compile',
+                {
+                    ...payload,
+                    ms: Math.round((ended - started) * 100) / 100,
+                },
+                options
+            )
+        }
+        return compiled
+    }
+    function emitMountBeforeSync(payload) {
+        return runBefore('mount', payload, { awaitAsync: false })
+    }
+    function emitMountAfterSync(payload) {
+        runAfter('mount', payload, { awaitAsync: false })
+    }
+    async function emitMountBefore(payload) {
+        return runBefore('mount', payload, { awaitAsync: true })
+    }
+    async function emitMountAfter(payload) {
+        await runAfter('mount', payload, { awaitAsync: true })
+    }
+    function emitUnmountBeforeSync(payload) {
+        return runBefore('unmount', payload, { awaitAsync: false })
+    }
+    function emitUnmountAfterSync(payload) {
+        runAfter('unmount', payload, { awaitAsync: false })
     }
 
     // src/jslade/lib/reactive.js
@@ -3680,6 +3930,8 @@ ${def.markup || ''}
             _channels: {},
             _last: {},
             _publish(channel, value) {
+                const payload = { channel, value, local, time: Date.now() }
+                if (runBefore('wire:send', payload) === false) return
                 this._last[channel] = value
                 if (wireDebugEnabled) {
                     console.log(
@@ -3690,7 +3942,7 @@ ${def.markup || ''}
                         value
                     )
                 }
-                emitHook('message', { channel, value, local, time: Date.now() })
+                emitHook('message', payload)
                 const subs = this._channels[channel]
                 if (!subs) return
                 subs.slice().forEach(function (fn) {
@@ -3708,6 +3960,10 @@ ${def.markup || ''}
                 delete this._last[channel]
             },
             subscribe(channel, fn, subscriber) {
+                const payload = { channel, local, time: Date.now(), instance: subscriber || null }
+                if (runBefore('wire:subscribe', payload) === false) {
+                    return function noop() {}
+                }
                 if (wireDebugEnabled) {
                     console.log(
                         '%c[Wire] %csubscribe %c' + channel,
@@ -3717,15 +3973,24 @@ ${def.markup || ''}
                     )
                 }
                 ;(this._channels[channel] = this._channels[channel] || []).push(fn)
-                emitHook('subscribe', { channel, local, time: Date.now(), instance: subscriber || null })
+                emitHook('subscribe', payload)
                 if (channel in this._last) fn(this._last[channel])
                 const channels = this._channels
+                const self = this
                 return function unsubscribe() {
+                    const offPayload = {
+                        channel,
+                        local,
+                        time: Date.now(),
+                        instance: subscriber || null,
+                    }
+                    if (runBefore('wire:unsubscribe', offPayload) === false) return
                     const subs = channels[channel]
                     if (!subs) return
                     const index = subs.indexOf(fn)
                     if (index !== -1) subs.splice(index, 1)
                     if (subs.length === 0) delete channels[channel]
+                    runAfter('wire:unsubscribe', offPayload)
                 }
             },
             clear() {
@@ -3748,9 +4013,9 @@ ${def.markup || ''}
                 bus.forget(name)
             },
             receive(fn) {
-                const off = bus.subscribe(name, fn, caller)
-                if (caller && typeof caller._trackWire === 'function') caller._trackWire(off)
-                return off
+                const off2 = bus.subscribe(name, fn, caller)
+                if (caller && typeof caller._trackWire === 'function') caller._trackWire(off2)
+                return off2
             },
         }
     }
@@ -3785,12 +4050,12 @@ ${def.markup || ''}
                 return null
         }
     }
-    function applyDeclaredValue(element, before, source) {
-        if (!before) return
-        const after = readDeclaredValue(source)
-        if ('checked' in before && before.checked !== after.checked) element.checked = after.checked
-        if ('selected' in before && before.selected !== after.selected) element.selected = after.selected
-        if ('value' in before && before.value !== after.value && after.value !== null) element.value = after.value
+    function applyDeclaredValue(element, before2, source) {
+        if (!before2) return
+        const after2 = readDeclaredValue(source)
+        if ('checked' in before2 && before2.checked !== after2.checked) element.checked = after2.checked
+        if ('selected' in before2 && before2.selected !== after2.selected) element.selected = after2.selected
+        if ('value' in before2 && before2.value !== after2.value && after2.value !== null) element.value = after2.value
     }
     function syncAttributes(from, to) {
         const incoming = to.attributes
@@ -4012,6 +4277,13 @@ ${def.markup || ''}
         }
         unmount() {
             if (this._unmounted) return
+            const meta = getComponentMeta(this._api, this.name)
+            const unmountPayload = {
+                name: this.name,
+                instance: this,
+                ...meta,
+            }
+            if (emitUnmountBeforeSync(unmountPayload) === false) return
             this._unmounted = true
             emitHook('instance', { action: 'unmount', instance: this })
             for (let i = this.children.length - 1; i >= 0; i--) this.children[i].unmount()
@@ -4032,6 +4304,7 @@ ${def.markup || ''}
                 const index = siblings.indexOf(this)
                 if (index !== -1) siblings.splice(index, 1)
             }
+            emitUnmountAfterSync(unmountPayload)
         }
         renderTo(target) {
             if (typeof target === 'string') {
@@ -4159,14 +4432,14 @@ ${def.markup || ''}
          * Walks patched DOM and rebuilds owner.children in document order.
          * Survivors keep their instance; new markers spawn child Components.
          */
-        static adoptChildren(scope, tree, owner, registry, createComponent, mergeComponentProps, created) {
+        static adoptChildren(scope, tree, owner, registry2, createComponent, mergeComponentProps, created) {
             created = created || []
             for (let node = scope.firstElementChild; node; node = node.nextElementSibling) {
                 _Component.adoptMarkedElement(
                     node,
                     tree,
                     owner,
-                    registry,
+                    registry2,
                     createComponent,
                     mergeComponentProps,
                     created
@@ -4174,7 +4447,7 @@ ${def.markup || ''}
             }
             return created
         }
-        static adoptMarkedElement(element, tree, owner, registry, createComponent, mergeComponentProps, created) {
+        static adoptMarkedElement(element, tree, owner, registry2, createComponent, mergeComponentProps, created) {
             const rawId = element.getAttribute(CHILD_ID)
             const entry = rawId === null ? null : tree.map.get(Number(rawId))
             const live = element.component
@@ -4185,9 +4458,19 @@ ${def.markup || ''}
                 return
             }
             if (!entry) {
-                _Component.adoptChildren(element, tree, owner, registry, createComponent, mergeComponentProps, created)
+                _Component.adoptChildren(element, tree, owner, registry2, createComponent, mergeComponentProps, created)
                 return
             }
+            const meta = getComponentMeta(owner._api, entry.name)
+            const mountPayload = {
+                name: entry.name,
+                via: 'child',
+                props: entry.props || {},
+                container: element,
+                parent: owner,
+                ...meta,
+            }
+            if (emitMountBeforeSync(mountPayload) === false) return
             const child = createComponent({
                 id: entry.id,
                 name: entry.name,
@@ -4196,11 +4479,11 @@ ${def.markup || ''}
                 parent: owner,
                 key: entry.key,
                 initialState: mergeComponentProps(entry.name, entry.props),
-                registry,
+                registry: registry2,
             })
             owner.children.push(child)
-            created.push(child)
-            _Component.adoptChildren(element, tree, child, registry, createComponent, mergeComponentProps, created)
+            created.push({ child, mountPayload })
+            _Component.adoptChildren(element, tree, child, registry2, createComponent, mergeComponentProps, created)
         }
         /** Only props the parent passed — defaults must not overwrite child state from mount(). */
         static applyIncomingProps(instance, props) {
@@ -4210,17 +4493,21 @@ ${def.markup || ''}
         /** Deepest child first so a parent's mount() sees an initialised subtree. */
         static mountCreated(created) {
             for (let i = created.length - 1; i >= 0; i--) {
-                created[i].bindToDom()
-                created[i].mount()
+                const entry = created[i]
+                const child = entry.child || entry
+                const mountPayload = entry.mountPayload
+                child.bindToDom()
+                child.mount()
+                if (mountPayload) emitMountAfterSync({ ...mountPayload, instance: child })
             }
         }
-        _trackWire(off) {
-            ;(this._wireUnsubs = this._wireUnsubs || []).push(off)
+        _trackWire(off2) {
+            ;(this._wireUnsubs = this._wireUnsubs || []).push(off2)
         }
         _releaseWireSubscriptions() {
             if (!this._wireUnsubs) return
-            this._wireUnsubs.forEach(function (off) {
-                off()
+            this._wireUnsubs.forEach(function (off2) {
+                off2()
             })
             this._wireUnsubs.length = 0
         }
@@ -4290,17 +4577,21 @@ ${def.markup || ''}
         function createRenderTree() {
             return { map: /* @__PURE__ */ new Map(), counts: /* @__PURE__ */ new Map(), ownerStack: [0] }
         }
-        function getCompiled(templateName) {
-            api._ensureCompiled?.(templateName)
+        function getCompiled(templateName, via = 'render') {
+            requestComponentSync(api, templateName, via)
+            return api.compiledComponents[templateName]
+        }
+        async function getCompiledAsync(templateName, via = 'render') {
+            await requestComponent(api, templateName, via)
             return api.compiledComponents[templateName]
         }
         function mergeComponentProps(templateName, props) {
-            const compiled = getCompiled(templateName)
+            const compiled = getCompiled(templateName, 'child')
             const defaults = compiled?.resolvePropDefaults?.() ?? compiled?.propDefaults ?? {}
             return { ...defaults, ...(props || {}) }
         }
-        function renderComponentTree(templateName, renderData, instance) {
-            const compiled = getCompiled(templateName)
+        function renderComponentTree(templateName, renderData, instance, via = 'render') {
+            const compiled = getCompiled(templateName, via)
             if (!compiled) {
                 _devLog.warn('[Jslade] Template not found:', templateName)
                 return { html: '', tree: createRenderTree() }
@@ -4315,7 +4606,7 @@ ${def.markup || ''}
         }
         function emitChild(site, name, props) {
             const tree = _renderTreeStack[_renderTreeStack.length - 1]
-            const compiled = getCompiled(name)
+            const compiled = getCompiled(name, 'child')
             if (!tree || !compiled) {
                 if (!compiled) _devLog.warn('[Jslade] @component: unknown template', name)
                 return ''
@@ -4375,11 +4666,44 @@ ${def.markup || ''}
                 renderQueue,
             })
         }
-        function renderTo(container, templateName, renderData, parentRef) {
-            if (!getCompiled(templateName)) {
+        function buildMountPayload(templateName, renderData, container, parentRef, via) {
+            const meta = getComponentMeta(api, templateName)
+            return {
+                name: templateName,
+                via: via || 'renderTo',
+                props: renderData ?? {},
+                container: container || null,
+                parent: parentRef || null,
+                ...meta,
+            }
+        }
+        function renderTo(container, templateName, renderData, parentRef, options) {
+            const via = (options && options.via) || 'renderTo'
+            if (!requestComponentSync(api, templateName, via)) {
                 _devLog.warn(`[Jslade] Component "${templateName}" not compiled`)
                 return null
             }
+            const mountPayload = buildMountPayload(templateName, renderData, container, parentRef, via)
+            if (emitMountBeforeSync(mountPayload) === false) return null
+            const instance = mountInstance(container, templateName, renderData, parentRef)
+            if (!instance) return null
+            emitMountAfterSync({ ...mountPayload, instance })
+            return instance
+        }
+        async function renderToAsync(container, templateName, renderData, parentRef, options) {
+            const via = (options && options.via) || 'renderTo'
+            if (!(await requestComponent(api, templateName, via))) {
+                _devLog.warn(`[Jslade] Component "${templateName}" not compiled`)
+                return null
+            }
+            const mountPayload = buildMountPayload(templateName, renderData, container, parentRef, via)
+            if ((await emitMountBefore(mountPayload)) === false) return null
+            const instance = mountInstance(container, templateName, renderData, parentRef)
+            if (!instance) return null
+            await emitMountAfter({ ...mountPayload, instance })
+            return instance
+        }
+        function mountInstance(container, templateName, renderData, parentRef) {
             const renderStart = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
             if (typeof container === 'string') {
                 const selector = container
@@ -4393,7 +4717,7 @@ ${def.markup || ''}
             }
             const ownsContainer = !container
             container = container || document.createElement('div')
-            const registry = /* @__PURE__ */ new Map()
+            const registry2 = /* @__PURE__ */ new Map()
             const initialData = mergeComponentProps(templateName, renderData)
             const root = createComponent({
                 id: ++_instanceSeq,
@@ -4402,15 +4726,15 @@ ${def.markup || ''}
                 hostMode: 'inner',
                 parent: parentRef || null,
                 initialState: initialData,
-                registry,
+                registry: registry2,
                 ownsContainer,
             })
             root.bindToDom()
-            const { html, tree } = renderComponentTree(templateName, root.state, root)
+            const { html, tree } = renderComponentTree(templateName, root.state, root, 'renderTo')
             container.innerHTML = html
             root.bindEventHandlers()
             Component.mountCreated(
-                Component.adoptChildren(container, tree, root, registry, createComponent, mergeComponentProps)
+                Component.adoptChildren(container, tree, root, registry2, createComponent, mergeComponentProps)
             )
             root.mount()
             const renderEnd = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
@@ -4426,6 +4750,7 @@ ${def.markup || ''}
             renderComponentTree,
             emitChild,
             renderTo,
+            renderToAsync,
         }
     }
 
@@ -4482,9 +4807,13 @@ ${def.markup || ''}
                 let def = null
                 if (typeof value === 'string') {
                     def = Jslade2._extractTemplateDefFromSource(value)
-                    if (def) def.rawText = value.trim()
+                    if (def) {
+                        def.rawText = value.trim()
+                        tagComponentOrigin(def, 'import')
+                    }
                 } else if (value && typeof value === 'object') {
                     def = { ...value }
+                    tagComponentOrigin(def, 'inline')
                 }
                 if (!def) continue
                 const sourceFile = sources[normalized] ?? sources[name]
@@ -4499,36 +4828,46 @@ ${def.markup || ''}
         function loadDefinitions() {
             if (hasDom()) Jslade2.scanDOM()
         }
-        function ensureCompiled(name) {
+        function ensureCompiled(name, via = 'internal') {
             if (Jslade2.compiledComponents[name]) return true
-            const def = Jslade2._sourceComponents[name]
-            if (def) {
-                Jslade2.compile(name, def)
-                if (Jslade2.compiledComponents[name]) {
-                    delete Jslade2._sourceComponents[name]
-                    removeDomTemplate(name)
-                    return true
+            return requestComponentSync(Jslade2, name, via)
+        }
+        async function ensureCompiledAsync(name, via = 'internal') {
+            if (Jslade2.compiledComponents[name]) return true
+            return requestComponent(Jslade2, name, via)
+        }
+        function mountPlaceholders(root, options) {
+            if (!hasDom()) return []
+            const scope = root || document
+            const mounted = []
+            const awaitAsync = !!(options && options.awaitAsync)
+            for (const element of scope.querySelectorAll(`${MOUNT_TAG}[name]`)) {
+                if (element.component) continue
+                const name = element.getAttribute('name')
+                const props = readProps(element)
+                if (awaitAsync) continue
+                if (!ensureCompiled(name, 'placeholder')) {
+                    _devLog.warn(`[Jslade] <${MOUNT_TAG} name="${name}"> skipped: component not loaded yet.`)
+                    continue
                 }
+                const instance = Jslade2.renderTo(element, name, props, null, { via: 'placeholder' })
+                if (instance) mounted.push(instance)
             }
-            return false
+            return mounted
         }
-        function removeDomTemplate(name) {
-            if (!hasDom()) return
-            const el = document.querySelector(`${COMPONENT_DEF_TAG}[name="${name}"]`)
-            if (el) el.remove()
-        }
-        function mountPlaceholders(root) {
+        async function mountPlaceholdersAsync(root) {
             if (!hasDom()) return []
             const scope = root || document
             const mounted = []
             for (const element of scope.querySelectorAll(`${MOUNT_TAG}[name]`)) {
                 if (element.component) continue
                 const name = element.getAttribute('name')
-                if (!ensureCompiled(name)) {
+                const props = readProps(element)
+                if (!(await ensureCompiledAsync(name, 'placeholder'))) {
                     _devLog.warn(`[Jslade] <${MOUNT_TAG} name="${name}"> skipped: component not loaded yet.`)
                     continue
                 }
-                const instance = Jslade2.renderTo(element, name, readProps(element))
+                const instance = await Jslade2.renderToAsync(element, name, props, null, { via: 'placeholder' })
                 if (instance) mounted.push(instance)
             }
             return mounted
@@ -4542,7 +4881,24 @@ ${def.markup || ''}
             injectMountStyle()
             return mountPlaceholders(opts.root)
         }
-        return { start, mountPlaceholders, ensureCompiled, importTemplates }
+        async function startAsync(options) {
+            const opts = options || {}
+            if (opts.dev === true) Jslade2.dev = true
+            if (opts.showChannels) Jslade2.wireDebug = true
+            loadDefinitions()
+            if (opts.mount === false) return []
+            injectMountStyle()
+            return mountPlaceholdersAsync(opts.root)
+        }
+        return {
+            start,
+            startAsync,
+            mountPlaceholders,
+            mountPlaceholdersAsync,
+            ensureCompiled,
+            ensureCompiledAsync,
+            importTemplates,
+        }
     }
 
     // src/jslade/lib/load-resources.js
@@ -4805,6 +5161,10 @@ ${def.markup || ''}
             const win = getWindow()
             const resolved = resolveSrc(entry.src, win)
             const cacheKey = entry.type + '\0' + resolved
+            const basePayload = { type: entry.type, src: resolved, time: Date.now() }
+            if (runBefore('resource:load', basePayload) === false) {
+                return Promise.reject(resourceError('resource:load blocked for ' + entry.src))
+            }
             if (typeof entry.test === 'function' && entry.test()) {
                 logDev('test skip', entry.type, resolved)
                 notifyResource(entry.type, resolved, 'skip')
@@ -4883,9 +5243,11 @@ ${def.markup || ''}
     var autostart = createAutostart(Jslade)
     Object.assign(Jslade, {
         directive(directiveName, handlerOrOpts, fn) {
-            directiveRegistry.register(directiveName, handlerOrOpts, fn)
             const isBlock = handlerOrOpts && typeof handlerOrOpts === 'object' && handlerOrOpts.block === true
-            emitHook('directive', { name: directiveName, type: isBlock ? 'block' : 'inline' })
+            const payload = { name: directiveName, type: isBlock ? 'block' : 'inline' }
+            if (runBefore('directive:register', payload) === false) return this
+            directiveRegistry.register(directiveName, handlerOrOpts, fn)
+            emitHook('directive', payload)
             return this
         },
         if(name, predicateFn) {
@@ -4948,9 +5310,15 @@ ${def.markup || ''}
         start(opts) {
             return autostart.start(opts)
         },
+        startAsync(opts) {
+            return autostart.startAsync(opts)
+        },
         /** Mounts `<jslade>` placeholders without reloading definitions. */
         mountAll(root) {
             return autostart.mountPlaceholders(root)
+        },
+        mountAllAsync(root) {
+            return autostart.mountPlaceholdersAsync(root)
         },
         /** Former name of `start()`, kept for existing pages. */
         bootstrap(opts) {
@@ -4973,8 +5341,10 @@ ${def.markup || ''}
             if (!def) return
             const compiledTemplate = compileTemplateDef(name, def, directiveRegistry, Jslade)
             if (compiledTemplate) {
+                if (def.origin) compiledTemplate.origin = def.origin
                 this.compiledComponents[name] = compiledTemplate
                 delete this._sourceComponents[name]
+                this._removeDomTemplate(name)
             }
         },
         /**
@@ -4991,11 +5361,18 @@ ${def.markup || ''}
         render(templateName, renderData) {
             return lifecycle.stripChildMarkers(lifecycle.renderComponentTree(templateName, renderData ?? {}).html)
         },
-        renderTo(container, templateName, renderData, parentRef) {
-            return lifecycle.renderTo(container, templateName, renderData, parentRef)
+        renderTo(container, templateName, renderData, parentRef, options) {
+            return lifecycle.renderTo(container, templateName, renderData, parentRef, options)
+        },
+        renderToAsync(container, templateName, renderData, parentRef, options) {
+            return lifecycle.renderToAsync(container, templateName, renderData, parentRef, options)
         },
         list() {
             return Object.keys(this.compiledComponents)
+        },
+        /** True when the name is registered (import / scanDOM) or already compiled. */
+        hasComponent(name) {
+            return hasComponent(this, name)
         },
         instances() {
             return snapshotLiveInstancesByTemplate()
@@ -5017,10 +5394,28 @@ ${def.markup || ''}
                     const def = self._extractTemplateDefFromSource(el.outerHTML)
                     if (def) {
                         def.rawText = el.outerHTML
+                        tagComponentOrigin(def, 'dom')
                         self._sourceComponents[name] = def
                     }
                 }
             })
+        },
+        _removeDomTemplate(name) {
+            if (typeof document === 'undefined') return
+            const el = document.querySelector(`${COMPONENT_DEF_TAG}[name="${name}"]`)
+            if (el) el.remove()
+        },
+        before(event, fn) {
+            return before(event, fn)
+        },
+        after(event, fn) {
+            return after(event, fn)
+        },
+        once(event, fn) {
+            return once(event, fn)
+        },
+        off(event, fn) {
+            return off(event, fn)
         },
         _extractTemplateDefFromSource(sourceText) {
             const raw = sourceText.trim()

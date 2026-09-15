@@ -84,7 +84,8 @@
                 { "file": "05-integration/15-registering-components.md", "title": "Registering components" },
                 { "file": "05-integration/16-props-from-backend.md", "title": "Props from the backend" },
                 { "file": "05-integration/17-load-resources.md", "title": "Lazy JS/CSS (loadResources)" },
-                { "file": "05-integration/18-csp-security-performance.md", "title": "CSP, security, performance" }
+                { "file": "05-integration/18-csp-security-performance.md", "title": "CSP, security, performance" },
+                { "file": "05-integration/19-engine-events.md", "title": "Engine events" }
             ]
         },
         {

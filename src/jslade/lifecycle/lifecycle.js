@@ -1,6 +1,15 @@
 import { _devLog } from '../lib/dev-log.js'
 import { emitHook } from '../lib/hooks.js'
 import { escapeHtml } from '../lib/html-utils.js'
+import { getComponentMeta } from '../lib/component-meta.js'
+import {
+    requestComponentSync,
+    requestComponent,
+    emitMountBeforeSync,
+    emitMountAfterSync,
+    emitMountBefore,
+    emitMountAfter,
+} from '../lib/component-pipeline.js'
 import { CHILD_ID, CHILD_KEY, Component } from './component.js'
 import { createRenderQueue } from './render-queue.js'
 
@@ -29,19 +38,24 @@ export function createLifecycle(api) {
     }
 
     /** A template referenced by @component may still be waiting for its lazy compile. */
-    function getCompiled(templateName) {
-        api._ensureCompiled?.(templateName)
+    function getCompiled(templateName, via = 'render') {
+        requestComponentSync(api, templateName, via)
+        return api.compiledComponents[templateName]
+    }
+
+    async function getCompiledAsync(templateName, via = 'render') {
+        await requestComponent(api, templateName, via)
         return api.compiledComponents[templateName]
     }
 
     function mergeComponentProps(templateName, props) {
-        const compiled = getCompiled(templateName)
+        const compiled = getCompiled(templateName, 'child')
         const defaults = compiled?.resolvePropDefaults?.() ?? compiled?.propDefaults ?? {}
         return { ...defaults, ...(props || {}) }
     }
 
-    function renderComponentTree(templateName, renderData, instance) {
-        const compiled = getCompiled(templateName)
+    function renderComponentTree(templateName, renderData, instance, via = 'render') {
+        const compiled = getCompiled(templateName, via)
         if (!compiled) {
             _devLog.warn('[Jslade] Template not found:', templateName)
             return { html: '', tree: createRenderTree() }
@@ -62,7 +76,7 @@ export function createLifecycle(api) {
      */
     function emitChild(site, name, props) {
         const tree = _renderTreeStack[_renderTreeStack.length - 1]
-        const compiled = getCompiled(name)
+        const compiled = getCompiled(name, 'child')
         if (!tree || !compiled) {
             if (!compiled) _devLog.warn('[Jslade] @component: unknown template', name)
             return ''
@@ -131,11 +145,53 @@ export function createLifecycle(api) {
         })
     }
 
-    function renderTo(container, templateName, renderData, parentRef) {
-        if (!getCompiled(templateName)) {
+    function buildMountPayload(templateName, renderData, container, parentRef, via) {
+        const meta = getComponentMeta(api, templateName)
+        return {
+            name: templateName,
+            via: via || 'renderTo',
+            props: renderData ?? {},
+            container: container || null,
+            parent: parentRef || null,
+            ...meta,
+        }
+    }
+
+    function renderTo(container, templateName, renderData, parentRef, options) {
+        const via = (options && options.via) || 'renderTo'
+        if (!requestComponentSync(api, templateName, via)) {
             _devLog.warn(`[Jslade] Component "${templateName}" not compiled`)
             return null
         }
+
+        const mountPayload = buildMountPayload(templateName, renderData, container, parentRef, via)
+        if (emitMountBeforeSync(mountPayload) === false) return null
+
+        const instance = mountInstance(container, templateName, renderData, parentRef)
+        if (!instance) return null
+
+        emitMountAfterSync({ ...mountPayload, instance })
+        return instance
+    }
+
+    async function renderToAsync(container, templateName, renderData, parentRef, options) {
+        const via = (options && options.via) || 'renderTo'
+        if (!(await requestComponent(api, templateName, via))) {
+            _devLog.warn(`[Jslade] Component "${templateName}" not compiled`)
+            return null
+        }
+
+        const mountPayload = buildMountPayload(templateName, renderData, container, parentRef, via)
+        if ((await emitMountBefore(mountPayload)) === false) return null
+
+        const instance = mountInstance(container, templateName, renderData, parentRef)
+        if (!instance) return null
+
+        await emitMountAfter({ ...mountPayload, instance })
+        return instance
+    }
+
+    function mountInstance(container, templateName, renderData, parentRef) {
         const renderStart = typeof performance !== 'undefined' && performance.now ? performance.now() : 0
 
         if (typeof container === 'string') {
@@ -164,7 +220,7 @@ export function createLifecycle(api) {
         })
 
         root.bindToDom()
-        const { html, tree } = renderComponentTree(templateName, root.state, root)
+        const { html, tree } = renderComponentTree(templateName, root.state, root, 'renderTo')
         container.innerHTML = html
         root.bindEventHandlers()
 
@@ -188,5 +244,6 @@ export function createLifecycle(api) {
         renderComponentTree,
         emitChild,
         renderTo,
+        renderToAsync,
     }
 }

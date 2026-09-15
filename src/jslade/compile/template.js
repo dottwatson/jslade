@@ -32,6 +32,7 @@ export function compileTemplateDef(templateName, def, directiveRegistry, api) {
         text: def.rawText || buildModuleSourceText({ script: scriptSource, markup, scopedStyles, scopeTargets }),
         sourceLines,
         sourceFile: def.sourceFile || null,
+        origin: def.origin || null,
     }
 
     const templateScript = scriptSource
