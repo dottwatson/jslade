@@ -395,6 +395,19 @@ This is not `Jslade.import()` (that registers component source). Guide:
 
 ---
 
+## Agent skill
+
+Install the Jslade skill for compatible coding agents with Node.js and npm:
+
+```sh
+npx skills add dottwatson/jslade --skill jslade
+```
+
+The installer lets you select supported agents and project or global scope. The skill
+is available after the repository changes containing it are published.
+
+---
+
 ## Documentation
 
 | Guide | Contents |
